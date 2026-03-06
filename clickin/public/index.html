@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ClickIn - Self Billing Platform</title>
+    <meta name="description" content="ClickIn - The premier self-billing platform for quick service and food delivery. Browse shops, order food, and track deliveries with ease.">
+    <meta name="keywords" content="self-billing, food delivery, shops, orders, ClickIn">
+    <meta name="author" content="ClickIn">
+    <meta property="og:title" content="ClickIn - Self Billing Platform">
+    <meta property="og:description" content="The premier self-billing platform for quick service and food delivery">
+    <meta property="og:image" content="/logo.png">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#22c55e">
+
+    <!-- update the version number as needed -->
+    <script defer src="/__/firebase/12.9.0/firebase-app-compat.js"></script>
+    <!-- include only the Firebase features as you need -->
+    <script defer src="/__/firebase/12.9.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-database-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-firestore-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-messaging-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-storage-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-analytics-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-remote-config-compat.js"></script>
+    <script defer src="/__/firebase/12.9.0/firebase-performance-compat.js"></script>
+    <!-- 
+      initialize the SDK after all desired features are loaded, set useEmulator to false
+      to avoid connecting the SDK to running emulators.
+    -->
+    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+
+    <style media="screen">
+      body { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: rgba(0,0,0,0.87); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+      #message { background: white; max-width: 500px; margin: 16px; padding: 48px 32px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); text-align: center; }
+      #logo { max-width: 200px; height: auto; margin: 0 auto 24px; }
+      #message h2 { color: #22c55e; font-weight: 700; font-size: 14px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+      #message h1 { font-size: 28px; font-weight: 700; color: rgba(0,0,0,0.9); margin: 0 0 16px; }
+      #message p { line-height: 1.6; margin: 16px 0 24px; font-size: 16px; color: rgba(0,0,0,0.7); }
+      #message a { display: inline-block; text-align: center; background: #22c55e; text-transform: uppercase; text-decoration: none; color: white; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px; transition: background 0.3s ease; }
+      #message a:hover { background: #16a34a; }
+      #load { color: rgba(255,255,255,0.8); text-align: center; font-size: 13px; position: fixed; bottom: 20px; width: 100%; }
+      @media (max-width: 600px) {
+        body { padding: 16px; }
+        #message { margin: 0; padding: 32px 24px; }
+        #message h1 { font-size: 24px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="message">
+      <img id="logo" src="/logo.png" alt="ClickIn Logo">
+      <h2>Welcome to ClickIn</h2>
+      <h1>Self Billing Platform</h1>
+      <p>Your premier destination for quick service and food delivery. Browse restaurants, place orders, and enjoy fast delivery.</p>
+      <a href="/">Launch ClickIn</a>
+    </div>
+    <p id="load">Loading ClickIn...</p>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const loadEl = document.querySelector('#load');
+        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+        // // The Firebase SDK is initialized and available here!
+        //
+        // firebase.auth().onAuthStateChanged(user => { });
+        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
+        // firebase.firestore().doc('/foo/bar').get().then(() => { });
+        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
+        // firebase.messaging().requestPermission().then(() => { });
+        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
+        // firebase.analytics(); // call to activate
+        // firebase.analytics().logEvent('tutorial_completed');
+        // firebase.performance(); // call to activate
+        //
+        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+
+        try {
+          let app = firebase.app();
+          let features = [
+            'auth', 
+            'database', 
+            'firestore',
+            'functions',
+            'messaging', 
+            'storage', 
+            'analytics', 
+            'remoteConfig',
+            'performance',
+          ].filter(feature => typeof app[feature] === 'function');
+          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
+        } catch (e) {
+          console.error(e);
+          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
+        }
+      });
+    </script>
+  </body>
+</html>

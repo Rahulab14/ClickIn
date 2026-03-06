@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the current user is an Admin
+    function isAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // 1. Users Collection
+    match /users/{uid} {
+      // Users can read/write their own profile, Admins can read/write everything
+      allow read, write: if request.auth != null && (request.auth.uid == uid || isAdmin());
+    }
+
+    // 2. Vendors Collection - Business profiles
+    match /vendors/{uid} {
+      // Allow creation during signup if UID matches
+      // Allow read/update if UID matches or Admin
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow read, update, delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
+    }
+    
+    // 3. Staff Collection - Employee profiles
+    match /staff/{uid} {
+      allow create: if request.auth != null && request.auth.uid == uid;
+      
+      // Allow read if querying by shopId the user owns, OR if Admin, OR if reading own profile
+      allow read: if request.auth != null && (
+        request.auth.uid == uid || 
+        isAdmin() || 
+        (
+          resource != null && 
+          resource.data.shopId != null && 
+          get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId == request.auth.uid
+        )
+      );
+      
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == uid || 
+        isAdmin() || 
+        (
+          resource != null && 
+          resource.data.shopId != null && 
+          get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId == request.auth.uid
+        )
+      );
+    }
+    
+    // 4. Shops Collection - allowing vendor owners to create shops
+    match /shops/{shopId} {
+      // Temporarily allow authenticated users to create shops during signup
+      // (ideally we would validate they are a vendor_owner, but during signup the user document might not exist yet)
+      allow create: if request.auth != null;
+      allow read: if true; // Public can read shops
+      allow update, delete: if request.auth != null && (isAdmin() || resource.data.ownerId == request.auth.uid);
+      
+      // Allow nested subcollections like menu, categories, staff
+      match /{document=**} {
+        allow read: if true;
+        allow write: if request.auth != null && (isAdmin() || get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid);
+      }
+    }
+
+    // 5. Orders Collection
+    match /orders/{orderId} {
+      allow create: if true; // Any customer can place an order
+      allow read: if true; // In MVP we might just want to let customers see their orders
+      allow update, delete: if request.auth != null; // Vendor logic handles update
+    }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
