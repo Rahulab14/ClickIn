@@ -111,6 +111,9 @@ const DEMO_SETTINGS: VendorSettings = {
     operatingHours: DEFAULT_OPERATING_HOURS,
     taxPercentage: 5,
     gstNumber: "29ABCDE1234F1Z5",
+    // NOTE: this is just a placeholder demo ID – it's not a merchant handle and
+    // may be blocked by real UPI apps (famapp/gpay will complain about non-merchant
+    // IDs). Replace with your own valid merchant UPI when testing.
     upiId: "balajier2006@okaxis",
     bankAccountName: "Sultan Kacchi Foods Pvt Ltd",
     bankAccountNumber: "1234567890123456",
@@ -120,6 +123,7 @@ const DEMO_SETTINGS: VendorSettings = {
     notifyLowStock: true,
     notifyDailySummary: true,
     orderAlertSound: true,
+    isManualMode: false,
 };
 
 const DEMO_TRANSACTIONS: VendorTransaction[] = [
@@ -307,25 +311,32 @@ export async function updateMenuItemStock(shopId: string, itemId: string, newSto
 }
 
 // Reduce stock when customer places an order (called from order placement)
-export async function reduceMenuItemStock(shopId: string, items: { menuItemId: string; quantity: number }[]): Promise<void> {
-    if (!shopId || shopId === "demo-shop") return;
-    await runTransaction(db, async (transaction) => {
-        for (const item of items) {
-            const ref = doc(db, "shops", shopId, "menu", item.menuItemId);
-            const snap = await transaction.get(ref);
-            if (snap.exists()) {
-                const data = snap.data();
-                const currentStock = data.stock ?? -1;
-                // Only reduce if stock is tracked (not unlimited = -1)
-                if (currentStock >= 0) {
-                    const newStock = Math.max(0, currentStock - item.quantity);
-                    const updates: Record<string, any> = { stock: newStock, updatedAt: new Date().toISOString() };
-                    if (newStock === 0) updates.available = false;
-                    transaction.update(ref, updates);
+export async function reduceMenuItemStock(shopId: string, items: { menuItemId: string; quantity: number }[]): Promise<boolean> {
+    // return true if update succeeded, false if not (errors swallowed)
+    if (!shopId || shopId === "demo-shop") return true;
+    try {
+        await runTransaction(db, async (transaction) => {
+            for (const item of items) {
+                const ref = doc(db, "shops", shopId, "menu", item.menuItemId);
+                const snap = await transaction.get(ref);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const currentStock = data.stock ?? -1;
+                    // Only reduce if stock is tracked (not unlimited = -1)
+                    if (currentStock >= 0) {
+                        const newStock = Math.max(0, currentStock - item.quantity);
+                        const updates: Record<string, any> = { stock: newStock, updatedAt: new Date().toISOString() };
+                        if (newStock === 0) updates.available = false;
+                        transaction.update(ref, updates);
+                    }
                 }
             }
-        }
-    });
+        });
+        return true;
+    } catch (e) {
+        console.error(`reduceMenuItemStock txn failed for shop=${shopId} items=`, items, e);
+        return false;
+    }
 }
 
 // ---- CATEGORIES ----
@@ -359,10 +370,17 @@ export async function getActiveOrders(shopId: string): Promise<VendorOrder[]> {
 
 export async function getOrderHistory(shopId: string, limitCount = 50): Promise<VendorOrder[]> {
     if (!shopId) return [];
+    
+    // Only fetch orders from the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     try {
         const q = query(
             collection(db, "orders"),
             where("shopId", "==", shopId),
+            where("status", "in", ["COMPLETED", "CANCELLED"]),
+            where("createdAt", ">=", thirtyDaysAgo.toISOString()),
             orderBy("createdAt", "desc"),
             limit(limitCount)
         );
@@ -370,6 +388,75 @@ export async function getOrderHistory(shopId: string, limitCount = 50): Promise<
         return snap.docs.map(d => ({ id: d.id, ...d.data() }) as VendorOrder);
     } catch (e) { console.warn("Firestore getOrderHistory error", e); }
     return [];
+}
+
+export function subscribeToOrderHistory(
+    shopId: string, 
+    callback: (orders: VendorOrder[]) => void, 
+    range: "TODAY" | "7DAYS" | "1MONTH" = "1MONTH",
+    limitCount = 100
+): Unsubscribe {
+    if (!shopId) return () => {};
+    
+    const now = new Date();
+    let startDate = new Date();
+    
+    if (range === "TODAY") {
+        startDate.setHours(0, 0, 0, 0);
+    } else if (range === "7DAYS") {
+        startDate.setDate(now.getDate() - 7);
+    } else {
+        startDate.setDate(now.getDate() - 30);
+    }
+
+    const q = query(
+        collection(db, "orders"),
+        where("shopId", "==", shopId),
+        where("status", "in", ["COMPLETED", "CANCELLED"]),
+        where("createdAt", ">=", startDate.toISOString()),
+        orderBy("createdAt", "desc"),
+        limit(limitCount)
+    );
+    
+    return onSnapshot(q, (snap) => {
+        const orders = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as VendorOrder);
+        callback(orders);
+    }, (error) => {
+        console.error("Firestore subscribeToOrderHistory error:", error);
+    });
+}
+
+/**
+ * Cleanup orders older than 30 days for a specific shop.
+ * Based on user requirement to delete data after one month.
+ */
+export async function cleanupOldOrders(shopId: string): Promise<number> {
+    if (!shopId || shopId === "demo-shop") return 0;
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    try {
+        const q = query(
+            collection(db, "orders"),
+            where("shopId", "==", shopId),
+            where("createdAt", "<", thirtyDaysAgo.toISOString())
+        );
+        
+        const snap = await getDocs(q);
+        let deletedCount = 0;
+        
+        for (const d of snap.docs) {
+            await deleteDoc(doc(db, "orders", d.id));
+            deletedCount++;
+        }
+        
+        console.log(`🧹 Cleaned up ${deletedCount} old orders for shop: ${shopId}`);
+        return deletedCount;
+    } catch (e) {
+        console.error("Error during order cleanup:", e);
+        return 0;
+    }
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus, extra?: Partial<VendorOrder>): Promise<void> {
@@ -402,6 +489,32 @@ export function subscribeToOrders(shopId: string, callback: (orders: VendorOrder
         callback(snap.docs.map(d => ({ id: d.id, ...d.data() }) as VendorOrder));
     }, (error) => {
         console.error(`Firestore subscribeToOrders error for ${shopId}:`, error);
+    });
+}
+
+export function subscribeToOrdersByDate(shopId: string, date: string, callback: (orders: VendorOrder[]) => void): Unsubscribe {
+    if (!shopId) {
+        callback([]);
+        return () => { };
+    }
+    if (shopId === "demo-shop") {
+        callback(DEMO_ORDERS.filter(o => o.createdAt.startsWith(date)));
+        return () => { };
+    }
+    const startOfDay = `${date}T00:00:00.000Z`;
+    const endOfDay = `${date}T23:59:59.999Z`;
+
+    const q = query(
+        collection(db, "orders"),
+        where("shopId", "==", shopId),
+        where("createdAt", ">=", startOfDay),
+        where("createdAt", "<=", endOfDay),
+        orderBy("createdAt", "desc")
+    );
+    return onSnapshot(q, (snap) => {
+        callback(snap.docs.map(d => ({ id: d.id, ...d.data() }) as VendorOrder));
+    }, (error) => {
+        console.error(`Firestore subscribeToOrdersByDate error for ${shopId} date ${date}:`, error);
     });
 }
 
@@ -479,12 +592,44 @@ export async function getSettings(shopId: string): Promise<VendorSettings> {
         notifyLowStock: true,
         notifyDailySummary: true,
         orderAlertSound: true,
+        isManualMode: false,
     };
 }
 
 export async function updateSettings(shopId: string, data: Partial<VendorSettings>): Promise<void> {
     if (!shopId || shopId === "demo-shop") return;
     await setDoc(doc(db, "shops", shopId, "config", "settings"), data, { merge: true });
+}
+
+export function subscribeToSettings(shopId: string, callback: (settings: VendorSettings) => void): Unsubscribe {
+    if (!shopId || shopId === "demo-shop") {
+        callback(DEMO_SETTINGS);
+        return () => { };
+    }
+    return onSnapshot(doc(db, "shops", shopId, "config", "settings"), (snap) => {
+        if (snap.exists()) {
+            callback(snap.data() as VendorSettings);
+        } else {
+            callback({
+                shopId,
+                operatingHours: DEFAULT_OPERATING_HOURS,
+                taxPercentage: 0,
+                gstNumber: "",
+                upiId: "",
+                bankAccountName: "",
+                bankAccountNumber: "",
+                bankIFSC: "",
+                notifyNewOrders: true,
+                notifyOrderStatusChange: true,
+                notifyLowStock: true,
+                notifyDailySummary: true,
+                orderAlertSound: true,
+                isManualMode: false,
+            });
+        }
+    }, (error) => {
+        console.error(`Firestore subscribeToSettings error for ${shopId}:`, error);
+    });
 }
 
 // ---- TRANSACTIONS ----
@@ -495,6 +640,24 @@ export async function getTransactions(shopId: string): Promise<VendorTransaction
         const snap = await getDocs(q);
         return snap.docs.map(d => ({ id: d.id, ...d.data() }) as VendorTransaction);
     } catch { return []; }
+}
+
+export function subscribeToTransactions(shopId: string, callback: (transactions: VendorTransaction[]) => void): Unsubscribe {
+    if (!shopId || shopId === "demo-shop") {
+        callback(DEMO_TRANSACTIONS);
+        return () => { };
+    }
+    const q = query(
+        collection(db, "transactions"),
+        where("shopId", "==", shopId),
+        orderBy("createdAt", "desc"),
+        limit(100)
+    );
+    return onSnapshot(q, (snap) => {
+        callback(snap.docs.map(d => ({ id: d.id, ...d.data() }) as VendorTransaction));
+    }, (error) => {
+        console.error(`Firestore subscribeToTransactions error for ${shopId}:`, error);
+    });
 }
 
 export async function createRefund(shopId: string, orderId: string, amount: number, method: "UPI" | "CASH"): Promise<void> {
@@ -564,11 +727,11 @@ export function subscribeToDailySummary(shopId: string, callback: (summary: Dail
     });
 }
 
-export async function getWeeklySummary(shopId: string): Promise<DailySummary[]> {
-    // Returns last 7 daily summaries
+export async function getMonthlySummary(shopId: string): Promise<DailySummary[]> {
+    // Returns last 30 daily summaries
     if (!shopId || shopId === "demo-shop") {
         const summaries: DailySummary[] = [];
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 30; i++) {
             const date = new Date(Date.now() - i * 86400000).toISOString().split("T")[0];
             const summary = { ...DEMO_DAILY_SUMMARY, date, totalRevenue: Math.floor(DEMO_DAILY_SUMMARY.totalRevenue * (0.7 + Math.random() * 0.6)) };
             summaries.push(summary);
@@ -577,7 +740,7 @@ export async function getWeeklySummary(shopId: string): Promise<DailySummary[]> 
     }
 
     const summaries: DailySummary[] = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 30; i++) {
         const date = new Date(Date.now() - i * 86400000).toISOString().split("T")[0];
         try {
             const snap = await getDoc(doc(db, "shops", shopId, "analytics", date));
@@ -604,6 +767,31 @@ export async function getWeeklySummary(shopId: string): Promise<DailySummary[]> 
         });
     }
     return summaries;
+}
+
+export function subscribeToMonthlySummary(shopId: string, callback: (summaries: DailySummary[]) => void): Unsubscribe {
+    if (!shopId || shopId === "demo-shop") {
+        const summaries: DailySummary[] = [];
+        for (let i = 0; i < 30; i++) {
+            const date = new Date(Date.now() - i * 86400000).toISOString().split("T")[0];
+            summaries.push({ ...DEMO_DAILY_SUMMARY, date, totalRevenue: Math.floor(DEMO_DAILY_SUMMARY.totalRevenue * (0.7 + Math.random() * 0.6)) });
+        }
+        callback(summaries);
+        return () => { };
+    }
+
+    const q = query(
+        collection(db, "shops", shopId, "analytics"),
+        orderBy("date", "desc"),
+        limit(30)
+    );
+
+    return onSnapshot(q, (snap) => {
+        const summaries = snap.docs.map(d => d.data() as DailySummary);
+        callback(summaries);
+    }, (error) => {
+        console.error(`Firestore subscribeToMonthlySummary error for ${shopId}:`, error);
+    });
 }
 
 // ---- NOTIFICATIONS ----
@@ -748,14 +936,16 @@ export async function createCustomerOrder(order: Omit<VendorOrder, "id" | "updat
         orderId = ref.id;
     }
 
-    // Reduce stock for all ordered items (real-time sync)
-    try {
-        await reduceMenuItemStock(
-            order.shopId,
-            order.items.map(item => ({ menuItemId: item.menuItemId, quantity: item.quantity }))
-        );
-    } catch (e) {
-        console.error("Failed to reduce stock for order:", orderId, e);
+    // Reduce stock for all ordered items (real-time sync).  The helper now
+    // returns a boolean so we can quietly log without bubbling errors back to
+    // the caller (order creation should succeed even if the transaction fails).
+    const stockOk = await reduceMenuItemStock(
+        order.shopId,
+        order.items.map(item => ({ menuItemId: item.menuItemId, quantity: item.quantity }))
+    );
+    if (!stockOk) {
+        // already logged inside the helper; optionally notify vendor later
+        console.warn("reduceMenuItemStock returned false for order", orderId);
     }
 
     // Also create notification for vendor

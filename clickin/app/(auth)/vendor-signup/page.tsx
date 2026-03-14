@@ -52,7 +52,7 @@ export default function SignupPage() {
             setShowSuccess(true);
             // Fallback redirect in case the modal redirect fails
             setTimeout(() => {
-                router.push("/");
+                router.push("/vendor/setup");
             }, 2000);
         } catch (err: any) {
             setError(err.message || "Failed to sign up");
@@ -86,7 +86,7 @@ export default function SignupPage() {
                 <AuthSuccessModal
                     show={showSuccess}
                     autoRedirect={true}
-                    redirectPath="/"
+                    redirectPath="/vendor/setup"
                 />
 
                 {/* Header */}

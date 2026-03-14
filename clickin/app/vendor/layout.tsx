@@ -43,13 +43,8 @@ function VendorLayoutInner({ children }: { children: React.ReactNode }) {
                 if (userRole === "vendor_owner" && shop) {
                     const isSetupIncomplete = !shop.category || !shop.campus || !shop.upiId;
 
-                    if (isSetupIncomplete && pathname !== "/vendor/setup") {
-                        router.replace("/vendor/setup");
-                        return;
-                    }
-
-                    // If active and setup is complete, redirect away from auth pages
-                    if (userStatus === "active" && !isSetupIncomplete && (pathname === "/vendor" || pathname === "/vendor/signup" || pathname === "/vendor/pending-approval" || pathname === "/vendor/setup")) {
+                    // If active, redirect away from auth pages
+                    if (userStatus === "active" && (pathname === "/vendor" || pathname === "/vendor/signup" || pathname === "/vendor/pending-approval" || (!isSetupIncomplete && pathname === "/vendor/setup"))) {
                         router.replace("/vendor/dashboard")
                         return;
                     }
@@ -135,9 +130,9 @@ function VendorLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     const navItems = [
-        { name: "Dashboard", href: "/vendor/dashboard", icon: LayoutDashboard, roles: ["OWNER", "MANAGER", "CHEF", "WAITER", "CASHIER"] },
-        { name: "Live Orders", href: "/vendor/orders", icon: ShoppingBag, roles: ["OWNER", "MANAGER", "CHEF", "WAITER", "CASHIER"] },
-        { name: "Scan Order", href: "/vendor/scan", icon: ScanLine, roles: ["OWNER", "MANAGER", "WAITER", "CASHIER"] },
+        { name: "Dashboard", href: "/vendor/dashboard", icon: LayoutDashboard, roles: ["OWNER", "MANAGER"] },
+        { name: "Live Orders", href: "/vendor/orders", icon: ShoppingBag, roles: ["OWNER", "MANAGER"] },
+        { name: "Scan Order", href: "/vendor/scan", icon: ScanLine, roles: ["OWNER", "MANAGER"] },
         { name: "Menu Items", href: "/vendor/menu", icon: UtensilsCrossed, roles: ["OWNER", "MANAGER"] },
         { name: "QR Standee", href: "/vendor/qr", icon: Store, roles: ["OWNER", "MANAGER"] },
         { name: "Staff", href: "/vendor/staff", icon: Users, roles: ["OWNER", "MANAGER"] },
@@ -244,27 +239,35 @@ function VendorLayoutInner({ children }: { children: React.ReactNode }) {
             </aside>
 
             {/* Main Content Area */}
-            <div className="flex-1 md:ml-72 flex flex-col min-h-screen transition-all duration-300">
+            <div className="flex-1 md:ml-72 flex flex-col min-h-screen bg-gray-50/50 transition-all duration-300">
                 {/* Mobile Header */}
-                <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 p-4 flex items-center justify-between md:hidden sticky top-0 z-30">
+                <header className="bg-white/80 backdrop-blur-xl border-b border-gray-100 p-4 flex items-center justify-between md:hidden sticky top-0 z-30 shadow-sm shadow-gray-200/20">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="p-2 -ml-2 hover:bg-gray-100 rounded-lg active:scale-95 transition-transform"
+                            className="p-2 -ml-2 hover:bg-gray-100 rounded-xl active:scale-95 transition-all text-gray-600 hover:text-gray-900"
                         >
-                            <Menu className="h-6 w-6 text-gray-700" />
+                            <Menu className="h-5 w-5" />
                         </button>
-                        <Logo width={120} height={40} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold text-xs">
-                            {shopInitials}
+                        <div className="flex items-center gap-2">
+                            <Logo width={100} height={32} />
+                            <div className="h-4 w-px bg-gray-200 mx-1" />
+                            <span className="text-[10px] font-black tracking-widest text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                Partner
+                            </span>
                         </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Link href="/vendor/profile" className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors active:scale-95">
+                            <div className="h-8 w-8 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-full flex items-center justify-center text-emerald-700 font-bold text-xs ring-2 ring-white shadow-sm">
+                                {shopInitials}
+                            </div>
+                        </Link>
                     </div>
                 </header>
 
-                <main className="flex-1 p-4 md:p-8 overflow-y-auto overflow-x-hidden">
-                    <div className="max-w-7xl mx-auto w-full">
+                <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto overflow-x-hidden">
+                    <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500 pb-20 md:pb-0">
                         {children}
                     </div>
                 </main>

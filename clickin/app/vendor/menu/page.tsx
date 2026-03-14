@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/input"
-import { Plus, Minus, MoreVertical, Edit2, Trash2, X, Search, Image as ImageIcon, Save, AlertCircle, Package } from "lucide-react"
+import { Plus, Minus, MoreVertical, Edit2, Trash2, X, Search, Image as ImageIcon, Save, AlertCircle, Package, UtensilsCrossed } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useVendorAuth } from "@/context/vendor/VendorContext"
@@ -41,6 +41,7 @@ export default function VendorMenuPage() {
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
     const [formState, setFormState] = useState<MenuFormState>(EMPTY_FORM)
     const [saving, setSaving] = useState(false)
+    const [recentlyAdded, setRecentlyAdded] = useState<VendorMenuItem[]>([])
 
     // Real-time menu subscription
     useEffect(() => {
@@ -78,6 +79,7 @@ export default function VendorMenuPage() {
     const openAddModal = () => {
         setFormState(EMPTY_FORM)
         setEditingItem(null)
+        setRecentlyAdded([]) // clear showcase on fresh open
         setShowAddModal(true)
     }
 
@@ -97,7 +99,7 @@ export default function VendorMenuPage() {
         setShowAddModal(true)
     }
 
-    const handleSave = async () => {
+    const handleSave = async (addAnother = false) => {
         if (!formState.name || !formState.price || !formState.category || !shopId) return
         setSaving(true)
 
@@ -114,15 +116,30 @@ export default function VendorMenuPage() {
             stock: isNaN(stockVal) ? -1 : stockVal,
         }
 
-        if (editingItem) {
-            await updateMenuItem(shopId, editingItem.id, itemData)
-        } else {
-            await addMenuItem(shopId, itemData)
-        }
+        try {
+            if (editingItem) {
+                await updateMenuItem(shopId, editingItem.id, itemData)
+            } else {
+                const newId = await addMenuItem(shopId, itemData)
+                if (newId) {
+                    // Update showcase
+                    setRecentlyAdded(prev => [{...itemData, id: newId} as VendorMenuItem, ...prev])
+                }
+            }
 
-        setSaving(false)
-        setShowAddModal(false)
-        setEditingItem(null)
+            if (addAnother && !editingItem) {
+                // Clear form but keep modal open
+                setFormState({ ...EMPTY_FORM, category: formState.category }) // Remember category to speed up data entry
+            } else {
+                setShowAddModal(false)
+                setEditingItem(null)
+                setRecentlyAdded([])
+            }
+        } catch (error) {
+            console.error("Failed to save menu item", error)
+        } finally {
+            setSaving(false)
+        }
     }
 
     const handleDelete = async (id: string) => {
@@ -409,94 +426,163 @@ export default function VendorMenuPage() {
                 </div>
             )}
 
-            {/* Add/Edit Modal */}
+            {/* Add/Edit Modal (Split View) */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
-                            <h3 className="text-lg font-black text-gray-900">{editingItem ? "Edit Item" : "Add New Item"}</h3>
-                            <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                                <X className="h-5 w-5 text-gray-500" />
-                            </button>
-                        </div>
-
-                        <div className="p-5 space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Item Name *</label>
-                                <Input value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} placeholder="Chicken Biryani" className="text-sm" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Description</label>
-                                <Input value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Aromatic rice with spices..." className="text-sm" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Price (₹) *</label>
-                                    <Input type="number" value={formState.price} onChange={e => setFormState({ ...formState, price: e.target.value })} placeholder="120" className="text-sm" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Category *</label>
-                                    <Input
-                                        value={formState.category}
-                                        onChange={e => setFormState({ ...formState, category: e.target.value })}
-                                        placeholder="Main Course"
-                                        list="categories"
-                                        className="text-sm"
-                                    />
-                                    <datalist id="categories">
-                                        {categories.map(c => <option key={c.id} value={c.name} />)}
-                                    </datalist>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Image (emoji or URL)</label>
-                                    <Input value={formState.image} onChange={e => setFormState({ ...formState, image: e.target.value })} placeholder="🍗 or https://..." className="text-sm" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Stock Quantity</label>
-                                    <Input
-                                        type="number"
-                                        value={formState.stock}
-                                        onChange={e => setFormState({ ...formState, stock: e.target.value })}
-                                        placeholder="-1 for unlimited"
-                                        min={-1}
-                                        className="text-sm"
-                                    />
-                                    <p className="text-[9px] text-gray-400 font-medium">Use -1 for unlimited stock</p>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-4">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <Switch checked={formState.isVeg} onCheckedChange={v => setFormState({ ...formState, isVeg: v })} />
-                                    <span className="text-sm font-medium">{formState.isVeg ? "Veg" : "Non-Veg"}</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <Switch checked={formState.available} onCheckedChange={v => setFormState({ ...formState, available: v })} />
-                                    <span className="text-sm font-medium">Available</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <Switch checked={formState.bestseller} onCheckedChange={v => setFormState({ ...formState, bestseller: v })} />
-                                    <span className="text-sm font-medium">Bestseller</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="p-5 border-t border-gray-100 flex gap-2 sticky bottom-0 bg-white rounded-b-2xl">
-                            <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                            <Button
-                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 font-bold"
-                                onClick={handleSave}
-                                disabled={saving || !formState.name || !formState.price || !formState.category}
-                            >
-                                {saving ? (
-                                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <><Save className="h-4 w-4 mr-1" /> {editingItem ? "Update" : "Add Item"}</>
+                    <div className={cn("bg-white rounded-2xl shadow-2xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col md:flex-row", editingItem ? "max-w-xl" : "max-w-4xl")} onClick={e => e.stopPropagation()}>
+                        
+                        {/* Form Section */}
+                        <div className="flex flex-col w-full">
+                            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-white z-10 shrink-0">
+                                <h3 className="text-lg font-black text-gray-900">{editingItem ? "Edit Item" : "Add New Item"}</h3>
+                                {editingItem && (
+                                    <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 rounded-lg md:hidden">
+                                        <X className="h-5 w-5 text-gray-500" />
+                                    </button>
                                 )}
-                            </Button>
+                            </div>
+
+                            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Item Name *</label>
+                                    <Input value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} placeholder="Chicken Biryani" className="text-sm" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Description</label>
+                                    <Input value={formState.description} onChange={e => setFormState({ ...formState, description: e.target.value })} placeholder="Aromatic rice with spices..." className="text-sm" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Price (₹) *</label>
+                                        <Input type="number" value={formState.price} onChange={e => setFormState({ ...formState, price: e.target.value })} placeholder="120" className="text-sm" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Category *</label>
+                                        <Input
+                                            value={formState.category}
+                                            onChange={e => setFormState({ ...formState, category: e.target.value })}
+                                            placeholder="Main Course"
+                                            list="categories"
+                                            className="text-sm"
+                                        />
+                                        <datalist id="categories">
+                                            {categories.map(c => <option key={c.id} value={c.name} />)}
+                                        </datalist>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Image (emoji or URL)</label>
+                                        <Input value={formState.image} onChange={e => setFormState({ ...formState, image: e.target.value })} placeholder="🍗 or https://..." className="text-sm" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Stock Quantity</label>
+                                        <Input
+                                            type="number"
+                                            value={formState.stock}
+                                            onChange={e => setFormState({ ...formState, stock: e.target.value })}
+                                            placeholder="-1 for unlimited"
+                                            min={-1}
+                                            className="text-sm"
+                                        />
+                                        <p className="text-[9px] text-gray-400 font-medium">Use -1 for unlimited stock</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-100">
+                                    <label className="flex items-center gap-2 cursor-pointer bg-gray-50 px-3 py-2 rounded-lg border">
+                                        <Switch checked={formState.isVeg} onCheckedChange={v => setFormState({ ...formState, isVeg: v })} />
+                                        <span className="text-sm font-bold text-gray-700">{formState.isVeg ? "Veg" : "Non-Veg"}</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer bg-gray-50 px-3 py-2 rounded-lg border">
+                                        <Switch checked={formState.available} onCheckedChange={v => setFormState({ ...formState, available: v })} />
+                                        <span className="text-sm font-bold text-gray-700">Available</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer bg-amber-50 border-amber-200 px-3 py-2 rounded-lg border">
+                                        <Switch checked={formState.bestseller} onCheckedChange={v => setFormState({ ...formState, bestseller: v })} />
+                                        <span className="text-sm font-bold text-amber-900">Bestseller</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="p-5 border-t border-gray-100 flex gap-3 bg-gray-50 shrink-0">
+                                <Button variant="outline" className="flex-1 bg-white" onClick={() => setShowAddModal(false)}>Close</Button>
+                                {!editingItem && (
+                                    <Button
+                                        variant="outline"
+                                        className="flex-[2] border-emerald-600 text-emerald-700 hover:bg-emerald-50 bg-white font-bold"
+                                        onClick={() => handleSave(true)}
+                                        disabled={saving || !formState.name || !formState.price || !formState.category}
+                                    >
+                                        {saving ? <div className="h-4 w-4 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" /> : "Save & Add Another"}
+                                    </Button>
+                                )}
+                                <Button
+                                    className={cn("bg-emerald-600 hover:bg-emerald-700 font-bold", editingItem ? "flex-1" : "flex-1")}
+                                    onClick={() => handleSave(false)}
+                                    disabled={saving || !formState.name || !formState.price || !formState.category}
+                                >
+                                    {saving ? (
+                                        <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        editingItem ? "Update Item" : "Done"
+                                    )}
+                                </Button>
+                            </div>
                         </div>
+
+                        {/* Showcase Section (Right Column) - Only when Adding */}
+                        {!editingItem && (
+                            <div className="hidden md:flex flex-col w-[380px] bg-gray-50 border-l border-gray-200 shrink-0 relative">
+                                <div className="absolute top-4 right-4">
+                                     <button onClick={() => setShowAddModal(false)} className="p-2 bg-white hover:bg-gray-100 border shadow-sm rounded-lg opacity-50 hover:opacity-100 transition-opacity">
+                                        <X className="h-4 w-4 text-gray-600 font-bold" />
+                                    </button>
+                                </div>
+                                <div className="p-6 pb-2 border-b border-gray-200 bg-white">
+                                    <h3 className="font-black text-[#0A2647] text-lg flex items-center gap-2">
+                                        Recently Added <span className="text-emerald-500">✨</span>
+                                    </h3>
+                                    <p className="text-xs font-medium text-gray-500 mt-1">Items added in this session will appear here.</p>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                    {recentlyAdded.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-center opacity-50 px-4">
+                                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
+                                                <UtensilsCrossed className="h-6 w-6 text-gray-400" />
+                                            </div>
+                                            <p className="font-bold text-gray-600">No items added yet</p>
+                                            <p className="text-xs text-gray-500 mt-1">Fill the form and click "Save & Add Another" to quickly build your menu.</p>
+                                        </div>
+                                    ) : (
+                                        recentlyAdded.map(item => (
+                                            <div key={item.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                                                <div className="bg-gray-50 w-12 h-12 rounded-lg flex items-center justify-center text-2xl shrink-0 border border-gray-100">
+                                                    {item.image}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="font-bold text-sm text-gray-900 truncate pr-2">{item.name}</h4>
+                                                        <span className="font-bold text-emerald-700 text-sm shrink-0">₹{item.price}</span>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{item.description || "No description"}</p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-gray-50">{item.category}</Badge>
+                                                        <div className="flex items-center gap-1">
+                                                            <div className={cn("h-2.5 w-2.5 border rounded-sm flex items-center justify-center", item.isVeg ? "border-emerald-600" : "border-red-600")}>
+                                                                <div className={cn("h-1 w-1 rounded-full", item.isVeg ? "bg-emerald-600" : "bg-red-600")} />
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-gray-600">{item.isVeg ? "Veg" : "Non-Veg"}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        
                     </div>
                 </div>
             )}

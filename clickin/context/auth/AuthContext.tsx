@@ -10,6 +10,8 @@ import {
     updateProfile,
     GoogleAuthProvider,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     FacebookAuthProvider,
     OAuthProvider
 } from "firebase/auth";
@@ -83,6 +85,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const isAuthenticatingRef = useRef(false);
 
     useEffect(() => {
+        // Handle redirect result for mobile social login
+        getRedirectResult(auth).then(async (result) => {
+            if (result && result.user) {
+                try {
+                    const userRef = doc(db, "users", result.user.uid);
+                    const userSnap = await getDoc(userRef);
+                    if (!userSnap.exists()) {
+                        await setDoc(userRef, {
+                            uid: result.user.uid,
+                            email: result.user.email,
+                            fullName: result.user.displayName || "User",
+                            createdAt: new Date().toISOString(),
+                            photoURL: result.user.photoURL || "",
+                            role: "user",
+                            status: "active"
+                        });
+                        setUserRole("user");
+                        setUserStatus("active");
+                    } else {
+                        setUserRole(userSnap.data().role as UserRole);
+                        setUserStatus((userSnap.data().status as UserStatus) || "active");
+                    }
+                } catch (err) {
+                    console.warn("Could not sync redirect user to Firestore", err);
+                }
+            }
+        }).catch(error => {
+            console.error("Redirect auth error:", error);
+        });
+
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
             if (currentUser) {
@@ -270,7 +302,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAuthenticatingRef.current = true;
         try {
             const provider = new GoogleAuthProvider();
-            const result = await signInWithPopup(auth, provider);
+            const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
+            let result;
+            if (isMobile) {
+                await signInWithRedirect(auth, provider);
+                return; // Will reload page
+            } else {
+                result = await signInWithPopup(auth, provider);
+            }
+            
             // Optimistically check/create user doc
             try {
                 const userRef = doc(db, "users", result.user.uid);
@@ -305,7 +346,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const facebookSignIn = async () => {
         try {
             const provider = new FacebookAuthProvider();
-            return await signInWithPopup(auth, provider);
+            const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                await signInWithRedirect(auth, provider);
+                return;
+            } else {
+                return await signInWithPopup(auth, provider);
+            }
         } catch (e: any) {
             throw new Error(getAuthErrorMessage(e));
         }
@@ -314,7 +361,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const appleSignIn = async () => {
         try {
             const provider = new OAuthProvider('apple.com');
-            return await signInWithPopup(auth, provider);
+            const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                await signInWithRedirect(auth, provider);
+                return;
+            } else {
+                return await signInWithPopup(auth, provider);
+            }
         } catch (e: any) {
             throw new Error(getAuthErrorMessage(e));
         }

@@ -2,29 +2,93 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { QRCodeSVG } from "qrcode.react"
-import { Download, Printer, Share2, Store, Lock } from "lucide-react"
+import { QRCodeCanvas } from "qrcode.react"
+import { Download, Share2, Store, Lock } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/context/auth/AuthContext"
+import { getVendorProfile } from "@/lib/vendor-service"
+import { PremiumLoader } from "@/components/ui/PremiumLoader"
 
 export default function VendorQRGeneratorPage() {
     const router = useRouter()
+    const { user, userRole } = useAuth()
     const [role, setRole] = useState<string | null>(null)
-    const [shopName, setShopName] = useState("Sultan Kacchi Biryani")
+    const [shopName, setShopName] = useState("")
+    const [shopId, setShopId] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [isGenerating, setIsGenerating] = useState(false)
     const printRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const storedRole = localStorage.getItem("vendorRole")
-        setRole(storedRole)
-        if (storedRole && storedRole !== "OWNER") {
-            // Optional: Redirect staff away
-            // router.push("/vendor/dashboard") 
-        }
-    }, [])
+        setRole(storedRole || (userRole === "vendor_owner" ? "OWNER" : "STAFF"))
 
-    const handlePrint = () => {
-        window.print()
+        async function fetchVendorData() {
+            if (user?.uid) {
+                const profile = await getVendorProfile(user.uid)
+                if (profile) {
+                    setShopName(profile.shopName || profile.name || "My Shop")
+                    setShopId(profile.shopId)
+                }
+                setIsLoading(false)
+            } else if (user === null) {
+                setIsLoading(false)
+            }
+        }
+        fetchVendorData()
+    }, [user, userRole])
+
+    const handleDownloadImage = async () => {
+        if (!printRef.current) return
+
+        try {
+            setIsGenerating(true)
+
+            const element = printRef.current
+
+            // Wait for all images to load to prevent capture from failing
+            const images = Array.from(element.querySelectorAll("img"))
+            await Promise.all(
+                images.map((img) => {
+                    if (img.complete) return Promise.resolve()
+                    return new Promise((resolve) => {
+                        img.onload = resolve
+                        img.onerror = resolve
+                    })
+                })
+            )
+
+            // Force reflow/render
+            await new Promise(r => requestAnimationFrame(r))
+
+            const { toPng } = await import("html-to-image")
+
+            const dataUrl = await toPng(element, {
+                pixelRatio: 3,
+                backgroundColor: "#ffffff",
+                style: {
+                    transform: 'none',
+                    margin: '0'
+                }
+            })
+
+            // Download as PNG
+            const link = document.createElement("a")
+            link.download = `${shopName || "Clickin"}-QR-Standee.png`
+            link.href = dataUrl
+            link.click()
+        } catch (err) {
+            console.error("Image download error:", err)
+            alert("Failed to download image.")
+        } finally {
+            setIsGenerating(false)
+        }
+    }
+
+    if (isLoading) {
+        return <PremiumLoader message="Loading your QR Standee..." />
     }
 
     if (!role) return null
@@ -55,8 +119,8 @@ export default function VendorQRGeneratorPage() {
                     <Button variant="outline" className="gap-2">
                         <Share2 className="h-4 w-4" /> Share Link
                     </Button>
-                    <Button onClick={handlePrint} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-200">
-                        <Printer className="h-4 w-4" /> Print Standee
+                    <Button onClick={handleDownloadImage} disabled={isGenerating} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-200">
+                        <Download className="h-4 w-4" /> {isGenerating ? 'Generating...' : 'Download Image'}
                     </Button>
                 </div>
             </div>
@@ -67,16 +131,17 @@ export default function VendorQRGeneratorPage() {
                     <div
                         ref={printRef}
                         id="printable-qr"
-                        className="w-full max-w-[320px] bg-white rounded-3xl overflow-hidden shadow-2xl border border-gray-200 transform transition-transform hover:scale-[1.02] duration-300"
+                        className="w-full max-w-[320px] bg-white rounded-3xl overflow-hidden shadow-2xl border border-gray-200"
+                        style={{ width: '320px' }}
                     >
                         {/* Header - Payment App Style */}
                         <div className="bg-[#00BFA5] p-6 text-center relative overflow-hidden">
-                            {/* Background Pattern */}
-                            <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                            {/* Background Pattern (CSS-only, no external URL) */}
+                            <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px)', backgroundSize: '8px 8px'}}></div>
 
                             <div className="relative z-10">
-                                <h1 className="text-2xl font-black text-white tracking-tight mb-1">Clickin Pay</h1>
-                                <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest">Accepted Here</p>
+                                <h1 className="text-2xl font-black text-white tracking-tight mb-1">Clickin</h1>
+                                <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Scan • Order • Pickup</p>
                             </div>
                         </div>
 
@@ -84,45 +149,57 @@ export default function VendorQRGeneratorPage() {
                         <div className="h-4 bg-[#00BFA5] rounded-b-[50%] -mt-2 relative z-10"></div>
 
                         {/* QR Code Area */}
-                        <div className="p-8 pb-4 flex flex-col items-center">
-                            <h3 className="text-lg font-bold text-gray-900 text-center mb-1">{shopName}</h3>
-                            <p className="text-xs text-gray-400 mb-6 font-medium">Scan to View Menu & Order</p>
+                        <div className="p-8 pb-1 flex flex-col items-center print:flex-grow print:justify-center">
 
-                            <div className="p-1 bg-white border-2 border-dashed border-emerald-200 rounded-2xl relative">
-                                <div className="absolute -top-2 -left-2 w-4 h-4 border-t-4 border-l-4 border-[#00BFA5]"></div>
-                                <div className="absolute -top-2 -right-2 w-4 h-4 border-t-4 border-r-4 border-[#00BFA5]"></div>
-                                <div className="absolute -bottom-2 -left-2 w-4 h-4 border-b-4 border-l-4 border-[#00BFA5]"></div>
-                                <div className="absolute -bottom-2 -right-2 w-4 h-4 border-b-4 border-r-4 border-[#00BFA5]"></div>
+                            {/* Bigger font menu boldness low */}
+                            
+                            <h1 className="text-3xl font-black text-[#0A2647] tracking-tight mb-1 print:text-[3rem]">Menu & Order</h1>
+                           
+                            <p className="text-sm text-gray-400 mb-6 font-medium print:text-[1.5rem] print:mb-12 print:mt-2">Scan to View </p>
 
-                                <QRCodeSVG
-                                    value={`https://clickin.app/menu/${shopName.toLowerCase().replace(/\s+/g, '-')}`}
+                            <div className="p-1 bg-white border-2 border-dashed border-[#00BFA5]/60 rounded-2xl relative print:border-[3px] print:p-4 print:rounded-[2.5rem]">
+                                <div className="absolute -top-1.5 -left-1.5 w-4 h-4 border-t-4 border-l-4 border-[#00BFA5] print:-top-3 print:-left-3 print:w-8 print:h-8 print:border-t-8 print:border-l-8"></div>
+                                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 border-t-4 border-r-4 border-[#00BFA5] print:-top-3 print:-right-3 print:w-8 print:h-8 print:border-t-8 print:border-r-8"></div>
+                                <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 border-b-4 border-l-4 border-[#00BFA5] print:-bottom-3 print:-left-3 print:w-8 print:h-8 print:border-b-8 print:border-l-8"></div>
+                                <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 border-b-4 border-r-4 border-[#00BFA5] print:-bottom-3 print:-right-3 print:w-8 print:h-8 print:border-b-8 print:border-r-8"></div>
+
+                                <QRCodeCanvas
+                                    id="qr-code"
+                                    value={typeof window !== 'undefined' ? `${window.location.origin}/shop/${shopId || 'demo-shop'}` : `https://clickin-1.vercel.app/shop/${shopId || 'demo-shop'}`}
                                     size={200}
                                     level="H"
                                     includeMargin={true}
-                                    className="rounded-xl"
+                                    className="rounded-xl print:!w-[400px] print:!h-[400px] print:rounded-3xl"
                                 />
 
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="bg-white p-1 rounded-full shadow-sm">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
-                                            <Store className="h-4 w-4 text-white" />
-                                        </div>
-                                    </div>
+                                    <div className="bg-white p-1 rounded-full shadow-sm print:p-2">
+<img
+  src="/logo.png"
+  alt="Logo"
+  crossOrigin="anonymous"
+  className="w-8 h-8 rounded-full"
+/>                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Bottom Logos */}
-                        <div className="p-6 pt-2">
-                            <div className="flex items-center justify-center gap-4 opacity-60 grayscale hover:grayscale-0 transition-all">
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/1200px-UPI-Logo-vector.svg.png" alt="UPI" className="h-4 object-contain" />
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/2560px-Paytm_Logo_%28standalone%29.svg.png" alt="Paytm" className="h-4 object-contain" />
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png" alt="GPay" className="h-5 object-contain" />
-                                <span className="text-[10px] font-bold text-gray-400">+ Cash</span>
+                        <div className="p-2 pt-1 w-full">
+                            <div className="flex flex-col items-center justify-center gap-0 opacity-90 transition-all">
+                                {/* Top Row: BHIM | UPI */}
+                                <div className="flex justify-center w-full">
+                                    <img src="/upi.png" alt="BHIM UPI" className="h-20 object-contain" />
+                                </div>
+                                {/* Bottom Row: Other payment methods */}
+                                <div className="flex items-center justify-center gap-4 flex-wrap print:gap-8">
+                                    <img src="/payment-app.png" alt="Paytm" className="h-6.5 object-contain print:h-6" />
+                                    
+                                </div>
                             </div>
 
                             <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-                                <p className="text-[10px] text-gray-400">Powered by <span className="font-bold text-gray-600">Clickin Partner</span></p>
+                                <p className="text-[10px] text-gray-400">Powered by <span className="font-bold text-gray-600">ClickIn</span></p>
                             </div>
                         </div>
 
@@ -160,11 +237,12 @@ export default function VendorQRGeneratorPage() {
                                 <label className="text-xs font-bold text-gray-500 uppercase">Standee Theme</label>
                                 <div className="flex gap-2">
                                     <div className="w-8 h-8 rounded-full bg-[#00BFA5] ring-2 ring-offset-2 ring-emerald-500 cursor-pointer"></div>
-                                    <div className="w-8 h-8 rounded-full bg-blue-500 cursor-pointer opacity-50 hover:opacity-100"></div>
-                                    <div className="w-8 h-8 rounded-full bg-purple-500 cursor-pointer opacity-50 hover:opacity-100"></div>
-                                    <div className="w-8 h-8 rounded-full bg-black cursor-pointer opacity-50 hover:opacity-100"></div>
+                                    
                                 </div>
                             </div>
+                            
+
+                            
                         </CardContent>
                     </Card>
                 </div>

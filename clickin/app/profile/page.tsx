@@ -484,14 +484,7 @@ export default function ProfilePage() {
           </motion.section>
         )}
 
-        {/* Footer */}
-        <motion.section variants={sectionVariants} className="text-center pt-4 pb-8 space-y-4 opacity-70 hover:opacity-100 transition-opacity">
-          <div className="flex justify-center gap-8 text-[12px] text-gray-500 font-semibold">
-            <Link href="#" className="hover:text-gray-900 transition-colors">Terms of Service</Link>
-            <Link href="#" className="hover:text-gray-900 transition-colors">Privacy Policy</Link>
-          </div>
-          <p className="text-[11px] text-gray-400 font-mono tracking-wider">v2.0.0 • Build 2405</p>
-        </motion.section>
+        
       </motion.div>
     </div>
   );

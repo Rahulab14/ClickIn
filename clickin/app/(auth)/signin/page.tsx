@@ -3,15 +3,24 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AuthSuccessModal from "@/components/ui/auth-success-modal";
 import { useAuth } from "@/context/auth/AuthContext";
 
 export default function LoginPage() {
-    const { googleSignIn, facebookSignIn, appleSignIn } = useAuth();
+    const { user, googleSignIn, facebookSignIn, appleSignIn } = useAuth();
+    const router = useRouter();
     const [showSuccess, setShowSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    // If user returns from redirect login, automatically forward them.
+    useEffect(() => {
+        if (user && !showSuccess) {
+            router.push('/');
+        }
+    }, [user, showSuccess, router]);
 
     const handleSocialLogin = async (provider: string) => {
         setError("");
