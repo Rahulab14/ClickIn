@@ -8,16 +8,15 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useVendorAuth } from "@/context/vendor/VendorContext"
-import { subscribeToDailySummary, subscribeToOrders, subscribeToStaffActivity, subscribeToMenuItems, toggleShopOnline } from "@/lib/vendor-service"
+import { subscribeToDailySummary, subscribeToOrders, subscribeToStaffActivity, subscribeToMenuItems, toggleShopOnline, updateSettings } from "@/lib/vendor-service"
 import type { DailySummary, VendorOrder, StaffActivity, VendorMenuItem } from "@/lib/types/vendor"
 
 export default function VendorDashboard() {
-    const { role, shopId, shop, vendorProfile } = useVendorAuth()
+    const { role, shopId, shop, vendorProfile, settings } = useVendorAuth()
     const [summary, setSummary] = useState<DailySummary | null>(null)
     const [activeOrders, setActiveOrders] = useState<VendorOrder[]>([])
     const [staffActivity, setStaffActivity] = useState<StaffActivity[]>([])
     const [menuItems, setMenuItems] = useState<VendorMenuItem[]>([])
-    const [isOnline, setIsOnline] = useState(true)
     const [currentTime, setCurrentTime] = useState(new Date())
     const [togglingOnline, setTogglingOnline] = useState(false)
 
@@ -44,20 +43,47 @@ export default function VendorDashboard() {
         }
     }, [shopId])
 
-    useEffect(() => {
-        setIsOnline(shop?.isOnline ?? true)
-    }, [shop])
+    const isOnline = shop?.isOnline ?? true
+    const isManualMode = settings?.isManualMode ?? false
 
     const handleToggleOnline = async () => {
-        if (!shopId || togglingOnline) return
+        if (!shopId || togglingOnline || !settings) return
         setTogglingOnline(true)
         try {
-            await toggleShopOnline(shopId, !isOnline)
-            setIsOnline(!isOnline)
+            const nextStatus = !isOnline;
+            
+            // 1. If we are in Auto mode, switch to Manual mode FIRST
+            // This prevents the global boundary check from reverting our manual change
+            if (!settings.isManualMode) {
+                await updateSettings(shopId, { isManualMode: true });
+            }
+            
+            // 2. Then update the shop status
+            await toggleShopOnline(shopId, nextStatus);
+            
         } catch (e) {
             console.error("Failed to toggle shop status:", e)
         }
         setTogglingOnline(false)
+    }
+
+    const handleSetMode = async (mode: "auto" | "manual") => {
+        if (!shopId || togglingOnline || !settings) return;
+        setTogglingOnline(true);
+        try {
+            const isManual = mode === "manual";
+            await updateSettings(shopId, { isManualMode: isManual });
+            
+            if (!isManual) {
+                // When switching to auto, we should probably trigger a boundary check 
+                // but the Provider will catch it in the next interval or we can wait for sync.
+                // For a "Proper" feel, let's keep it simple as the provider handles it.
+            }
+        } catch (e) {
+            console.error("Failed to set status mode:", e);
+        }
+        setTogglingOnline(true);
+        setTimeout(() => setTogglingOnline(false), 500);
     }
 
     const newOrders = activeOrders.filter(o => o.status === "NEW").length
@@ -121,7 +147,27 @@ export default function VendorDashboard() {
                         </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                        {/* Live/Offline toggle button */}
+                        <div className="flex bg-white/10 p-1 rounded-xl border border-white/20 backdrop-blur-sm self-center h-fit">
+                            <button 
+                                onClick={() => handleSetMode("auto")}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all",
+                                    !isManualMode ? "bg-emerald-100 text-gray-900 shadow-sm" : "text-gray-900 hover:text-white"
+                                )}
+                            >
+                                Auto
+                            </button>
+                            <button 
+                                onClick={() => handleSetMode("manual")}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all",
+                                    isManualMode ? "bg-emerald-100 text-gray-900 shadow-sm" : "text-gray-900 hover:text-white"
+                                )}
+                            >
+                                Manual
+                            </button>
+                        </div>
+
                         <button
                             onClick={handleToggleOnline}
                             disabled={togglingOnline}
@@ -136,14 +182,12 @@ export default function VendorDashboard() {
                                 <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isOnline ? "bg-emerald-400" : "bg-red-400")}></span>
                                 <span className={cn("relative inline-flex rounded-full h-2.5 w-2.5 md:h-3 md:w-3", isOnline ? "bg-emerald-500" : "bg-red-500")}></span>
                             </span>
-                            {togglingOnline ? "..." : isOnline ? "ACCEPTING ORDERS" : "SHOP OFFLINE"}
-                            {isOnline ? <Wifi className="h-3.5 w-3.5" strokeWidth={2.5} /> : <WifiOff className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                            {togglingOnline ? "..." : isOnline ? "LIVE" : "CLOSED"}
                         </button>
-                        <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                        
+                        <div className="hidden lg:flex items-center gap-1.5 text-xs font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
                             <Clock className="h-3 w-3" />
                             <span className="tabular-nums">{formattedTime}</span>
-                            <span className="text-gray-300">•</span>
-                            <span>{formattedDate}</span>
                         </div>
                     </div>
                 </div>
@@ -215,7 +259,7 @@ export default function VendorDashboard() {
             )}
 
             {/* OWNER DASHBOARD */}
-            {(role === "OWNER" || role === "MANAGER") && (
+            {(role === "OWNER" ) && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
                     {/* 1. FINANCIAL SUMMARY CARDS */}

@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/context/auth/AuthContext";
-import { getVendorProfile, getShop, subscribeToShop } from "@/lib/vendor-service";
-import { VendorProfile, VendorShop, StaffRole } from "@/lib/types/vendor";
+import { getVendorProfile, getShop, subscribeToShop, subscribeToSettings, toggleShopOnline } from "@/lib/vendor-service";
+import { VendorProfile, VendorShop, StaffRole, VendorSettings } from "@/lib/types/vendor";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -15,6 +15,7 @@ interface VendorContextType {
     isVendorLoading: boolean;
     isDemo: boolean;
     isPendingApproval: boolean;
+    settings: VendorSettings | null;
 }
 
 const VendorContext = createContext<VendorContextType>({
@@ -25,6 +26,7 @@ const VendorContext = createContext<VendorContextType>({
     isVendorLoading: true,
     isDemo: false,
     isPendingApproval: false,
+    settings: null,
 });
 
 // Alias to minimize page refactoring
@@ -36,6 +38,7 @@ export const VendorProvider = ({ children }: { children: React.ReactNode }) => {
     const { user, userRole, loading } = useAuth();
     const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
     const [shop, setShop] = useState<VendorShop | null>(null);
+    const [settings, setSettings] = useState<VendorSettings | null>(null);
     const [isVendorLoading, setIsVendorLoading] = useState(true);
 
     useEffect(() => {
@@ -95,6 +98,54 @@ export const VendorProvider = ({ children }: { children: React.ReactNode }) => {
         };
     }, [user, userRole, loading]);
 
+    // Global Settings subscription
+    useEffect(() => {
+        if (!vendorProfile?.shopId) return;
+        const unsubSettings = subscribeToSettings(vendorProfile.shopId, (s) => {
+            setSettings(s);
+        });
+        return () => unsubSettings();
+    }, [vendorProfile?.shopId]);
+
+    // Global Operating Hours Boundary Check logic
+    useEffect(() => {
+        if (!settings || !vendorProfile?.shopId || !shop) return;
+
+        const checkBoundaries = () => {
+            const now = new Date();
+            const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
+            const currentTime = now.getHours() * 60 + now.getMinutes();
+
+            const hoursToday = settings.operatingHours.find((h) => h.day === currentDay);
+            
+            if (!hoursToday || !hoursToday.isOpen) {
+                if (shop.isOnline) {
+                    toggleShopOnline(vendorProfile.shopId!, false);
+                }
+                return;
+            }
+
+            const [openH, openM] = hoursToday.openTime.split(":").map(Number);
+            const [closeH, closeM] = hoursToday.closeTime.split(":").map(Number);
+            const openMinutes = openH * 60 + openM;
+            const closeMinutes = closeH * 60 + closeM;
+
+            const shouldBeOpen = currentTime >= openMinutes && currentTime < closeMinutes;
+
+            // If we are in Auto Mode (not Manual Override)
+            if (!settings.isManualMode) {
+                if (shop.isOnline !== shouldBeOpen) {
+                    toggleShopOnline(vendorProfile.shopId!, shouldBeOpen);
+                }
+            }
+        };
+
+        const timer = setInterval(checkBoundaries, 10000); // Check every 10s
+        checkBoundaries(); // Initial check
+
+        return () => clearInterval(timer);
+    }, [settings, vendorProfile?.shopId, shop?.isOnline]);
+
     return (
         <VendorContext.Provider value={{
             vendorProfile,
@@ -102,8 +153,9 @@ export const VendorProvider = ({ children }: { children: React.ReactNode }) => {
             shopId: vendorProfile?.shopId || null,
             role: vendorProfile?.role || null,
             isVendorLoading,
-            isDemo: false, // Demo flows disabled
+            isDemo: false,
             isPendingApproval: vendorProfile?.status !== "APPROVED" && userRole === "vendor_staff",
+            settings,
         }}>
             {children}
         </VendorContext.Provider>

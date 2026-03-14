@@ -25,7 +25,7 @@ type FormattedOrder = {
 }
 
 export default function CustomerOrdersPage() {
-    const [tab, setTab] = useState<"Active" | "Completed">("Active")
+    const [tab, setTab] = useState<"Active" | "History">("Active")
     const [loading, setLoading] = useState(true)
     const [orders, setOrders] = useState<FormattedOrder[]>([])
 
@@ -60,10 +60,10 @@ export default function CustomerOrdersPage() {
                     const data = { id: docSnap.id, ...docSnap.data() } as VendorOrder
 
                     const isActivePhase = ["NEW", "PREPARING", "READY"].includes(data.status)
-                    const isCompletedPhase = ["COMPLETED"].includes(data.status)
+                    const isHistoryPhase = ["COMPLETED", "CANCELLED"].includes(data.status)
 
                     if (tab === "Active" && !isActivePhase) continue
-                    if (tab === "Completed" && !isCompletedPhase) continue
+                    if (tab === "History" && !isHistoryPhase) continue
 
                     const shopInfo = shopDataMap[data.shopId]
                     const hotelName = shopInfo?.name || "Unknown Shop"
@@ -135,7 +135,7 @@ export default function CustomerOrdersPage() {
 
                 {/* Tabs */}
                 <div className="flex items-center px-4 bg-white/40 backdrop-blur-md border-b border-gray-100 z-10 relative">
-                    {(["Active", "Completed"] as const).map((t) => {
+                    {(["Active", "History"] as const).map((t) => {
                         const isActive = tab === t
                         return (
                             <button
@@ -219,7 +219,9 @@ export default function CustomerOrdersPage() {
                                             </h3>
                                             <div className={cn(
                                                 "text-[9px] font-black px-2.5 py-1 rounded-lg tracking-widest uppercase border",
-                                                tab === "Completed" ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-blue-50 border-blue-100 text-blue-600 animate-pulse"
+                                                ["COMPLETED", "CANCELLED"].includes(order.status) 
+                                                    ? order.status === "COMPLETED" ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-red-50 border-red-100 text-red-600"
+                                                    : "bg-blue-50 border-blue-100 text-blue-600 animate-pulse"
                                             )}>
                                                 {order.status}
                                             </div>
@@ -248,13 +250,15 @@ export default function CustomerOrdersPage() {
                                         {tab === "Active" ? <Clock className="h-4 w-4" /> : <Receipt className="h-4 w-4" />}
                                         {tab === "Active" ? "Track Flow" : "Get Receipt"}
                                     </button>
-                                    <button
-                                        onClick={() => handleOrderAgain(order)}
-                                        className="flex-1 py-4 px-4 rounded-[1.5rem] border border-gray-100 bg-white text-gray-600 font-black text-[12px] uppercase tracking-widest hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <RotateCcw className="h-4 w-4" />
-                                        Re-order
-                                    </button>
+                                    {tab === "History" && order.status === "COMPLETED" && (
+                                        <button
+                                            onClick={() => handleOrderAgain(order)}
+                                            className="flex-1 py-4 px-4 rounded-[1.5rem] border border-gray-100 bg-white text-gray-600 font-black text-[12px] uppercase tracking-widest hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <RotateCcw className="h-4 w-4" />
+                                            Re-order
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))

@@ -22,8 +22,18 @@ import { Suspense, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/context/customer/CartContext";
 import { useAuth } from "@/context/auth/AuthContext";
-import { createCustomerOrder, verifyPaymentUTR, getShop, subscribeToMenuItems, subscribeToShop } from "@/lib/vendor-service";
+import {
+  createCustomerOrder,
+  verifyPaymentUTR,
+  getShop,
+  subscribeToMenuItems,
+  subscribeToShop,
+} from "@/lib/vendor-service";
 import type { VendorOrder, VendorMenuItem } from "@/lib/types/vendor";
+import Image from "next/image";
+import { PremiumLoader } from "@/components/ui/PremiumLoader";
+
+
 
 function CheckoutPageContent() {
   const searchParams = useSearchParams();
@@ -40,7 +50,7 @@ function CheckoutPageContent() {
   const [shop, setShop] = useState<any>(null);
   const [liveMenu, setLiveMenu] = useState<VendorMenuItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<
-    "UPI_GPAY" | "UPI_PHONEPE" | "UPI_PAYTM" | "CASH"
+    "UPI_GPAY" | "UPI_PHONEPE" | "UPI_PAYTM" | "UPI_FAMAPP" | "CASH"
   >("UPI_GPAY");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showUtrDialog, setShowUtrDialog] = useState(false);
@@ -53,8 +63,11 @@ function CheckoutPageContent() {
     useState<string>("");
 
   useEffect(() => {
+    let unsub: (() => void) | undefined;
+
     async function fetchShopData() {
       if (shopId) {
+        // initial one‑time fetch in case subscription is slow
         const fbShop = await getShop(shopId);
         if (fbShop) {
           setShop(fbShop);
@@ -62,11 +75,20 @@ function CheckoutPageContent() {
           const mockShop = getShopById(shopId);
           setShop(mockShop || SHOPS[0]);
         }
+
+        // subscribe to live updates (including UPI changes)
+        unsub = subscribeToShop(shopId, (s) => {
+          if (s) setShop(s);
+        });
       } else {
         setShop(SHOPS[0]);
       }
     }
     fetchShopData();
+
+    return () => {
+      if (unsub) unsub();
+    };
   }, [shopId]);
 
   // Real-time menu & shop subscription for live stock/status updates during checkout
@@ -87,7 +109,9 @@ function CheckoutPageContent() {
   const updateQuantity = (itemId: string, delta: number) => {
     if (delta > 0) {
       // Cap at available stock
-      const menuItem = liveMenu.find(i => i.id === itemId) || (shop?.menu || []).find((i: any) => i.id === itemId);
+      const menuItem =
+        liveMenu.find((i) => i.id === itemId) ||
+        (shop?.menu || []).find((i: any) => i.id === itemId);
       if (menuItem) {
         const stock = menuItem.stock ?? -1;
         if (stock >= 0 && (cartItems[itemId] || 0) >= stock) return;
@@ -98,14 +122,12 @@ function CheckoutPageContent() {
 
   if (!shop) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        Loading...
-      </div>
+      <PremiumLoader message="Setting up your secure shop connection..." />
     );
   }
 
   // Use liveMenu if available for real-time stock, fallback to mock
-  const menuSource = liveMenu.length > 0 ? liveMenu : (shop.menu || []);
+  const menuSource = liveMenu.length > 0 ? liveMenu : shop.menu || [];
   const items = Object.entries(cartItems)
     .map(([itemId, qty]) => {
       const item = menuSource.find((i: any) => i.id === itemId);
@@ -114,7 +136,7 @@ function CheckoutPageContent() {
     .filter(Boolean) as any[];
 
   // Check for out-of-stock items in cart
-  const outOfStockItems = items.filter(item => {
+  const outOfStockItems = items.filter((item) => {
     const stock = item.stock ?? -1;
     return !item.available || stock === 0;
   });
@@ -125,7 +147,10 @@ function CheckoutPageContent() {
 
   // Filter items for Upsell (Items NOT in cart AND available)
   const recommendedItems = menuSource
-    .filter((item: any) => !cartItems[item.id] && item.available && (item.stock ?? -1) !== 0)
+    .filter(
+      (item: any) =>
+        !cartItems[item.id] && item.available && (item.stock ?? -1) !== 0,
+    )
     .slice(0, 5);
 
   if (shop?.isOnline === false) {
@@ -133,19 +158,27 @@ function CheckoutPageContent() {
       <div className="min-h-screen bg-gray-50 flex flex-col pt-16 md:pt-20">
         <div className="bg-white border-b border-gray-100 flex items-center justify-between px-4 h-16 md:h-20 fixed top-0 w-full z-40 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto shadow-sm">
           <div className="flex items-center gap-3 md:gap-4">
-            <button onClick={() => router.back()} className="p-2 md:p-3 hover:bg-gray-50 rounded-full transition-colors active:scale-95">
+            <button
+              onClick={() => router.back()}
+              className="p-2 md:p-3 hover:bg-gray-50 rounded-full transition-colors active:scale-95"
+            >
               <ArrowLeft className="w-5 h-5 md:w-6 md:h-6 text-gray-700" />
             </button>
-            <h1 className="text-lg md:text-2xl font-black text-gray-900 tracking-tight">Checkout</h1>
+            <h1 className="text-lg md:text-2xl font-black text-gray-900 tracking-tight">
+              Checkout
+            </h1>
           </div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95 duration-500">
           <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-inner ring-8 ring-red-50">
             <WifiOff className="w-12 h-12 text-red-500" strokeWidth={2.5} />
           </div>
-          <h2 className="text-3xl font-black text-gray-900 mb-3 tracking-tighter">Shop Offline</h2>
+          <h2 className="text-3xl font-black text-gray-900 mb-3 tracking-tighter">
+            Shop Offline
+          </h2>
           <p className="text-gray-500 text-base max-w-sm mx-auto mb-8 font-medium leading-relaxed">
-            The vendor is currently not accepting new orders. Please wait or check back later.
+            The vendor is currently not accepting new orders. Please wait or
+            check back later.
           </p>
           <button
             onClick={() => router.push(`/shop/${shopId}`)}
@@ -159,7 +192,7 @@ function CheckoutPageContent() {
   }
 
   const handlePaymentWithMethod = async (
-    method: "UPI_GPAY" | "UPI_PHONEPE" | "UPI_PAYTM" | "CASH",
+    method: "UPI_GPAY" | "UPI_PHONEPE" | "UPI_PAYTM" | "UPI_FAMAPP" | "CASH",
   ) => {
     setPaymentMethod(method);
     setIsProcessing(true);
@@ -174,7 +207,10 @@ function CheckoutPageContent() {
     }));
 
     // Generate a robust unique ID client-side
-    const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(2, 12);
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[-:T]/g, "")
+      .slice(2, 12);
     const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
     const generatedOrderId = `ORD-${timestamp}-${randomStr}`;
 
@@ -198,7 +234,9 @@ function CheckoutPageContent() {
       // We fire this and proceed to payment; the backend uses setDoc(id).
       createCustomerOrder(
         orderData as Omit<VendorOrder, "id" | "updatedAt"> & { id: string },
-      ).catch(err => console.error("Firestore background write failed:", err));
+      ).catch((err) =>
+        console.error("Firestore background write failed:", err),
+      );
 
       setOrderId(generatedOrderId);
       console.log("Order ID pre-generated:", generatedOrderId);
@@ -208,10 +246,17 @@ function CheckoutPageContent() {
 
       if (method.startsWith("UPI")) {
         // 2. Trigger UPI Intent from Frontend
-        const upiId = shop?.upiId || "balajier2006@okaxis";
+        const upiId = (shop?.upiId || "balajier2006@okaxis").trim();
         const rawShopName = shop?.name || "Shop";
         const shopName = encodeURIComponent(rawShopName);
         const amount = grandTotal.toFixed(2);
+        const validateUpi = (u: string) => /^[\w.\-]{3,}@[a-zA-Z]+$/.test(u);
+        if (!validateUpi(upiId)) {
+          // let the user know, but still attempt the intent in case the bank accepts it
+          window.alert(
+            "Warning: the UPI ID seems malformed. Please double-check with the vendor.",
+          );
+        }
 
         if (method === "UPI_GPAY" && "PaymentRequest" in window) {
           const supportedInstruments = [
@@ -241,13 +286,15 @@ function CheckoutPageContent() {
           try {
             const request = new (window as any).PaymentRequest(
               supportedInstruments,
-              paymentDetails
+              paymentDetails,
             );
 
             // Fast fail if unsupported
             const canMakePayment = await Promise.race([
               request.canMakePayment(),
-              new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1500))
+              new Promise<boolean>((resolve) =>
+                setTimeout(() => resolve(false), 1500),
+              ),
             ]);
 
             if (canMakePayment) {
@@ -256,12 +303,21 @@ function CheckoutPageContent() {
 
               let fetchedUtr = "";
               try {
-                if (paymentResponse.details && paymentResponse.details.tezResponse) {
-                  const tezData = JSON.parse(paymentResponse.details.tezResponse);
+                if (
+                  paymentResponse.details &&
+                  paymentResponse.details.tezResponse
+                ) {
+                  const tezData = JSON.parse(
+                    paymentResponse.details.tezResponse,
+                  );
                   if (tezData.Status === "SUCCESS") {
-                    fetchedUtr = tezData.txnId || tezData.txnRef || "GPAY-VERIFIED";
+                    fetchedUtr =
+                      tezData.txnId || tezData.txnRef || "GPAY-VERIFIED";
                   }
-                } else if (paymentResponse.details && paymentResponse.details.txnId) {
+                } else if (
+                  paymentResponse.details &&
+                  paymentResponse.details.txnId
+                ) {
                   fetchedUtr = paymentResponse.details.txnId;
                 } else {
                   fetchedUtr = "GPAY-VERIFIED";
@@ -274,7 +330,7 @@ function CheckoutPageContent() {
               if (fetchedUtr) {
                 clearCart();
                 router.push(
-                  `/order/${generatedOrderId}?status=PAID&shopId=${shopId || "demo-shop"}&utr=${fetchedUtr}`
+                  `/order/${generatedOrderId}?status=PAID&shopId=${shopId || "demo-shop"}&utr=${fetchedUtr}`,
                 );
                 return; // Exit here, no dialog needed
               }
@@ -294,6 +350,7 @@ function CheckoutPageContent() {
           if (method === "UPI_GPAY") intentPrefix = "tez://upi/pay";
           if (method === "UPI_PHONEPE") intentPrefix = "phonepe://pay";
           if (method === "UPI_PAYTM") intentPrefix = "paytmmp://pay";
+          if (method === "UPI_FAMAPP") intentPrefix = "fampay://pay"; // Use specific fampay intent scheme
 
           const upiLink = `${intentPrefix}?pa=${upiId}&pn=${shopName}&am=${amount}&cu=INR&tn=Order%20${generatedOrderId}`;
 
@@ -308,9 +365,16 @@ function CheckoutPageContent() {
       } else if (method === "CASH") {
         // If they choose 'Cash at Counter', the user said "it need to open the app and the customer need to pay to the vendor".
         // This means even for "Cash", we open the generic UPI picker.
-        const upiId = shop?.upiId || "balajier2006@okaxis";
+        const upiId = (shop?.upiId || "balajier2006@okaxis").trim();
         const shopName = encodeURIComponent(shop?.name || "Shop");
         const amount = grandTotal.toFixed(2);
+        // if the ID looks malformed we provide a fallback alert so user can paste manually
+        const validateUpi = (u: string) => /^[\w.\-]{3,}@[a-zA-Z]+$/.test(u);
+        if (!validateUpi(upiId)) {
+          window.alert(
+            "The vendor's UPI ID appears invalid, please verify before proceeding.",
+          );
+        }
         const upiLink = `upi://pay?pa=${upiId}&pn=${shopName}&am=${amount}&cu=INR&tn=Order%20${generatedOrderId}`;
 
         window.location.href = upiLink;
@@ -357,34 +421,7 @@ function CheckoutPageContent() {
   };
 
   if (items.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50/50 flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100 animate-in zoom-in duration-300">
-          <ShoppingBag className="h-10 w-10 text-gray-300" />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Your cart is empty
-        </h2>
-        <p className="text-gray-500 mb-8 max-w-xs leading-relaxed">
-          Looks like you haven't added anything to your cart from{" "}
-          <strong>{shop.name}</strong> yet.
-        </p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button
-            onClick={() => router.back()}
-            className="bg-primary text-white font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-transform w-full"
-          >
-            Browse Menu
-          </button>
-          <button
-            onClick={() => router.push("/")}
-            className="bg-white text-gray-700 font-bold py-3.5 px-8 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full flex items-center justify-center gap-2"
-          >
-            <Home className="w-4 h-4" /> Go to Home
-          </button>
-        </div>
-      </div>
-    );
+    return <PremiumLoader message="Fetching your items..." />;
   }
 
   return (
@@ -414,8 +451,13 @@ function CheckoutPageContent() {
             <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in duration-300">
               <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-bold text-red-800">Some items are no longer available</p>
-                <p className="text-xs text-red-600 mt-0.5">{outOfStockItems.map(i => i.name).join(", ")} went out of stock. Remove them to proceed.</p>
+                <p className="text-sm font-bold text-red-800">
+                  Some items are no longer available
+                </p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  {outOfStockItems.map((i) => i.name).join(", ")} went out of
+                  stock. Remove them to proceed.
+                </p>
               </div>
             </div>
           )}
@@ -440,7 +482,10 @@ function CheckoutPageContent() {
                 return (
                   <div
                     key={item.id}
-                    className={cn("flex justify-between items-start group rounded-xl transition-colors", isOut && "opacity-50")}
+                    className={cn(
+                      "flex justify-between items-start group rounded-xl transition-colors",
+                      isOut && "opacity-50",
+                    )}
                   >
                     <div className="flex gap-4 items-start flex-1">
                       <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0">
@@ -478,8 +523,16 @@ function CheckoutPageContent() {
                         <p className="text-sm font-medium text-gray-500 mt-1">
                           ₹{item.price}
                         </p>
-                        {isOut && <p className="text-[10px] font-bold text-red-500 mt-1">Out of stock</p>}
-                        {isLow && !isOut && <p className="text-[10px] font-bold text-amber-600 mt-1">Only {stock} left</p>}
+                        {isOut && (
+                          <p className="text-[10px] font-bold text-red-500 mt-1">
+                            Out of stock
+                          </p>
+                        )}
+                        {isLow && !isOut && (
+                          <p className="text-[10px] font-bold text-amber-600 mt-1">
+                            Only {stock} left
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-3">
@@ -498,7 +551,9 @@ function CheckoutPageContent() {
                           disabled={!canAdd}
                           className={cn(
                             "w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm border border-gray-100 transition-colors active:scale-95",
-                            canAdd ? "text-gray-600 hover:text-green-500 hover:bg-green-50" : "text-gray-300 cursor-not-allowed"
+                            canAdd
+                              ? "text-gray-600 hover:text-green-500 hover:bg-green-50"
+                              : "text-gray-300 cursor-not-allowed",
                           )}
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -613,15 +668,33 @@ function CheckoutPageContent() {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm overflow-hidden">
-                    <span className="text-xl font-bold" style={{ background: 'linear-gradient(135deg, #4285F4, #EA4335, #FBBC05, #34A853)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>G</span>
+                    <span
+                      className="text-xl font-bold"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #4285F4, #EA4335, #FBBC05, #34A853)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                      }}
+                    >
+                      G
+                    </span>
                   </div>
-                  <span className="font-semibold text-[15px] text-gray-800">Google Pay</span>
+                  <span className="font-semibold text-[15px] text-gray-800">
+                    Google Pay
+                  </span>
                 </div>
-                <div className={cn(
-                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
-                  paymentMethod === "UPI_GPAY" ? "border-teal-400 bg-teal-400" : "border-teal-400"
-                )}>
-                  {paymentMethod === "UPI_GPAY" && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                <div
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                    paymentMethod === "UPI_GPAY"
+                      ? "border-teal-400 bg-teal-400"
+                      : "border-teal-400",
+                  )}
+                >
+                  {paymentMethod === "UPI_GPAY" && (
+                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                  )}
                 </div>
               </button>
 
@@ -635,13 +708,21 @@ function CheckoutPageContent() {
                   <div className="w-10 h-10 rounded-xl bg-[#5f259f] flex items-center justify-center shadow-sm">
                     <span className="text-white font-bold text-sm">Pe</span>
                   </div>
-                  <span className="font-semibold text-[15px] text-gray-800">PhonePe</span>
+                  <span className="font-semibold text-[15px] text-gray-800">
+                    PhonePe
+                  </span>
                 </div>
-                <div className={cn(
-                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
-                  paymentMethod === "UPI_PHONEPE" ? "border-teal-400 bg-teal-400" : "border-teal-400"
-                )}>
-                  {paymentMethod === "UPI_PHONEPE" && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                <div
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                    paymentMethod === "UPI_PHONEPE"
+                      ? "border-teal-400 bg-teal-400"
+                      : "border-teal-400",
+                  )}
+                >
+                  {paymentMethod === "UPI_PHONEPE" && (
+                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                  )}
                 </div>
               </button>
 
@@ -653,15 +734,55 @@ function CheckoutPageContent() {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-[#00b9f1] flex items-center justify-center shadow-sm">
-                    <span className="text-white font-black text-[9px] tracking-tighter">Paytm</span>
+                    <span className="text-white font-black text-[9px] tracking-tighter">
+                      Paytm
+                    </span>
                   </div>
-                  <span className="font-semibold text-[15px] text-gray-800">Paytm</span>
+                  <span className="font-semibold text-[15px] text-gray-800">
+                    Paytm
+                  </span>
                 </div>
-                <div className={cn(
-                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
-                  paymentMethod === "UPI_PAYTM" ? "border-teal-400 bg-teal-400" : "border-teal-400"
-                )}>
-                  {paymentMethod === "UPI_PAYTM" && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                <div
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                    paymentMethod === "UPI_PAYTM"
+                      ? "border-teal-400 bg-teal-400"
+                      : "border-teal-400",
+                  )}
+                >
+                  {paymentMethod === "UPI_PAYTM" && (
+                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                  )}
+                </div>
+              </button>
+
+              {/* FamApp */}
+              <button
+                onClick={() => handlePaymentWithMethod("UPI_FAMAPP")}
+                disabled={isProcessing}
+                className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#000000] flex items-center justify-center shadow-sm">
+                    <span className="text-[#FFD100] font-black text-[12px] tracking-tight">
+                      Fam
+                    </span>
+                  </div>
+                  <span className="font-semibold text-[15px] text-gray-800">
+                    FamApp
+                  </span>
+                </div>
+                <div
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                    paymentMethod === "UPI_FAMAPP"
+                      ? "border-teal-400 bg-teal-400"
+                      : "border-teal-400",
+                  )}
+                >
+                  {paymentMethod === "UPI_FAMAPP" && (
+                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                  )}
                 </div>
               </button>
             </div>
@@ -841,9 +962,7 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          Loading...
-        </div>
+        <PremiumLoader message="Initializing ClickIn Secure Server..." />
       }
     >
       <CheckoutPageContent />

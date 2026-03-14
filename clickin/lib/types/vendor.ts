@@ -155,6 +155,7 @@ export interface VendorSettings {
     notifyLowStock: boolean;
     notifyDailySummary: boolean;
     orderAlertSound: boolean;
+    isManualMode?: boolean;
 }
 
 export interface VendorTransaction {

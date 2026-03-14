@@ -8,7 +8,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "ClickIn",
+  title: "ClickIn - Self Billing Platform",
   description:
     "Explore local restaurants and shops on ClickIn. Browse menus, place orders, and enjoy quick delivery of your favorite meals.",
   openGraph: {

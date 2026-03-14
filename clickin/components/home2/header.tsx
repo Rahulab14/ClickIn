@@ -150,9 +150,11 @@ export function Home2Header() {
                       </div>
                     </div>
                     {user && (
-                      <button className="text-emerald-500 hover:text-emerald-600 p-2">
-                        <Edit2 size={18} strokeWidth={2.5} />
-                      </button>
+                      <Link href="/profile">
+                        <button className="text-emerald-500 hover:text-emerald-600 p-2">
+                          <Edit2 size={18} strokeWidth={2.5} />
+                        </button>
+                      </Link>
                     )}
                   </div>
 
