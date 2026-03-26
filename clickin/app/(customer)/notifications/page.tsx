@@ -1,71 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Trash2, X, ShoppingBag, Ticket, Wallet, User, CheckCheck, Square, CheckSquare, MoreVertical, BellRing, Star, Check } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/context/auth/AuthContext";
+import { subscribeToCustomerNotifications, markAllNotificationsRead, deleteNotifications, CustomerNotification } from "@/lib/customer-service";
 
-interface Notification {
-    id: string;
-    title: string;
+export interface Notification extends CustomerNotification {
     date: string;
     time: string;
-    message: string;
+    icon?: React.ReactNode;
     isNew?: boolean;
-    type: 'error' | 'success' | 'warning' | 'info' | 'neutral';
-    icon: React.ReactNode;
 }
 
-const initialNotifications: Notification[] = [
-    {
-        id: "1",
-        title: "Orders Cancelled!",
-        date: "Today",
-        time: "8:50 PM",
-        message: "You have canceled an order at Burger Hut. We apologize for your inconvenience. We will try to improve our service next time 😔",
-        isNew: true,
-        type: 'error',
-        icon: <X className="w-5 h-5 text-white" />,
-    },
-    {
-        id: "2",
-        title: "Orders Successful!",
-        date: "Today",
-        time: "8:49 PM",
-        message: "You have placed an order at Burger Hut and paid $24. Your food will arrive soon. Enjoy our services 😋",
-        isNew: true,
-        type: 'success',
-        icon: <ShoppingBag className="w-5 h-5 text-white" />,
-    },
-    {
-        id: "3",
-        title: "New Services Available!",
-        date: "Yesterday",
-        time: "10:52 AM",
-        message: "You can now make multiple food orders at one time. You can also cancel your orders.",
-        type: 'warning',
-        icon: <Ticket className="w-5 h-5 text-white" />,
-    },
-    {
-        id: "4",
-        title: "Credit Card Connected!",
-        date: "December 12, 2022",
-        time: "3:38 PM",
-        message: "Your credit card has been successfully linked with Foodu. Enjoy our services.",
-        type: 'info',
-        icon: <Wallet className="w-5 h-5 text-white" />,
-    },
-    {
-        id: "5",
-        title: "Account Setup Successful!",
-        date: "December 12, 2022",
-        time: "2:27 PM",
-        message: "Your account creation is successful, you can now experience our services.",
-        type: 'success',
-        icon: <User className="w-5 h-5 text-white" />,
-    },
-];
+
 
 // Helper to get styles based on type
 const getTypeStyles = (type: Notification['type']) => {
@@ -118,14 +68,43 @@ const itemVariants = {
 };
 
 export default function NotificationPage() {
-    const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+    const { user } = useAuth();
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    // Group notifications by date
+    useEffect(() => {
+        if (!user) return;
+        
+        // Subscribe to real-time notifications
+        const unsubscribe = subscribeToCustomerNotifications(user.uid, (data) => {
+            // Map the backend structure to the component's Notification interface if needed
+            // We'll trust the customer-service interface structure and add the icon logic in rendering
+            setNotifications(data as any); 
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Group notifications by date (assuming createdAt is an ISO string)
     const groupedNotifications = notifications.reduce((acc, curr) => {
-        (acc[curr.date] = acc[curr.date] || []).push(curr);
+        // Simple date parsing to 'Today', 'Yesterday', or actual date
+        const d = new Date(curr.createdAt);
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        
+        let dateString = d.toLocaleDateString();
+        if (d.toDateString() === today.toDateString()) dateString = 'Today';
+        else if (d.toDateString() === yesterday.toDateString()) dateString = 'Yesterday';
+
+        (acc[dateString] = acc[dateString] || []).push({
+            ...curr,
+            date: dateString,
+            time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        } as unknown as Notification);
+        
         return acc;
     }, {} as Record<string, Notification[]>);
 
@@ -155,16 +134,21 @@ export default function NotificationPage() {
         }
     };
 
-    const handleDelete = () => {
-        setNotifications(prev => prev.filter(n => !selectedIds.has(n.id)));
+    const handleDelete = async () => {
+        if (user && selectedIds.size > 0) {
+            await deleteNotifications(user.uid, Array.from(selectedIds));
+        }
         setSelectedIds(new Set());
         setIsSelectionMode(false);
         setShowDeleteConfirm(false);
     };
 
-    const markAllAsRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, isNew: false })));
+    const handleMarkAllAsRead = async () => {
+        if (user) {
+            await markAllNotificationsRead(user.uid);
+        }
     };
+
 
     return (
         <div className="min-h-screen bg-[#F8F9FA] dark:bg-black/95 flex justify-center py-0 md:py-8 lg:py-12 px-0 md:px-4 relative overflow-hidden">
@@ -194,7 +178,7 @@ export default function NotificationPage() {
                     {/* Center: Title */}
                     <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
                         <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-br from-gray-900 via-gray-800 to-gray-600 dark:from-white dark:via-gray-200 dark:to-gray-500 tracking-tight leading-none">
-                            Alerts
+                            Notification
                         </h1>
                         <div className="h-1 w-4 bg-primary rounded-full mt-1 opacity-50" />
                     </div>
@@ -202,7 +186,7 @@ export default function NotificationPage() {
                     {/* Right: Actions */}
                     <div className="flex items-center gap-3 z-30">
                         <button
-                            onClick={markAllAsRead}
+                            onClick={handleMarkAllAsRead}
                             className="group p-3.5 rounded-2xl bg-white dark:bg-white/10 border border-gray-100 dark:border-white/5 hover:bg-primary/5 hover:border-primary/20 transition-all active:scale-95 shadow-sm"
                             title="Mark all as read"
                         >

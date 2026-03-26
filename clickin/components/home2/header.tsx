@@ -40,6 +40,7 @@ import { useTheme } from "next-themes";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
+import { subscribeToCustomerNotifications } from "@/lib/customer-service";
 
 export function Home2Header() {
   const { user, logout } = useAuth();
@@ -48,10 +49,23 @@ export function Home2Header() {
   const [userName, setUserName] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [mounted, setMounted] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    const unsubscribe = subscribeToCustomerNotifications(user.uid, (data) => {
+      const unread = data.filter((n) => !n.isRead).length;
+      setUnreadCount(unread);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   useEffect(() => {
     const fetchUserName = async () => {
@@ -299,7 +313,11 @@ export function Home2Header() {
             <Link href="/notifications">
               <button className="relative w-11 h-11 bg-white border border-gray-100 rounded-2xl flex items-center justify-center shadow-sm hover:bg-primary/5 hover:border-primary/20 hover:text-primary hover:shadow-md transition-all active:scale-95 group">
                 <Bell className="w-5 h-5 text-gray-700 group-hover:text-primary transition-colors" />
-                <span className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border-2 border-white ring-1 ring-red-500/20"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex flex-col items-center justify-center min-w-[20px] h-[20px] bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white px-1 shadow-sm">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
             </Link>
           </div>

@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation"
 import { getShopById, SHOPS } from "@/lib/mock-data"
-import { ArrowLeft, Trash2, ShoppingBag, ChevronRight, Home, MoreHorizontal, Check } from "lucide-react"
+import { ArrowLeft, Trash2, ShoppingBag, ChevronRight, Home, MoreHorizontal, Check, Link } from "lucide-react"
 import { Suspense, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion"
@@ -48,7 +48,7 @@ function CartPageContent() {
     }
 
     if (!shop) {
-        return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading...</div>
+        return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">Loading...</div>
     }
 
     const items = Object.entries(cartItems).map(([itemId, qty]) => {
@@ -61,21 +61,24 @@ function CartPageContent() {
 
     if (items.length === 0) {
         return (
-            <div className="min-h-screen bg-white flex flex-col font-sans">
+            <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col font-sans">
                 {/* Header */}
                 <div className="px-5 py-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => router.back()}
-                            className="w-10 h-10 flex items-center justify-center"
-                        >
-                            <ArrowLeft className="h-6 w-6 text-gray-900" />
-                        </button>
-                        <h1 className="font-bold text-xl text-gray-900">My Cart</h1>
+                    <Link
+                        href="/"
+                        className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800"
+                    >
+                        <ArrowLeft className="h-5 w-5 text-gray-900 dark:text-gray-100" />
+                    </Link>
+                    
+                    <div className="flex flex-col items-center">
+                        <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-br from-gray-900 dark:from-gray-100 via-gray-800 dark:via-gray-200 to-gray-600 dark:to-gray-400 tracking-tight leading-none">
+                            My Cart
+                        </h1>
+                        <div className="h-1 w-4 bg-primary rounded-full mt-1 opacity-50" />
                     </div>
-                    <button className="w-9 h-9 rounded-full border-2 border-gray-300 flex items-center justify-center">
-                        <MoreHorizontal className="h-4 w-4 text-gray-400" />
-                    </button>
+
+                    <div className="w-10 h-10" />
                 </div>
 
                 {/* Empty State */}
@@ -107,8 +110,8 @@ function CartPageContent() {
                         </svg>
                     </div>
 
-                    <h2 className="text-2xl font-bold text-gray-900 mb-3">Empty</h2>
-                    <p className="text-gray-400 text-base leading-relaxed text-center max-w-[260px]">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Empty</h2>
+                    <p className="text-gray-400 dark:text-gray-500 text-base leading-relaxed text-center max-w-[260px]">
                         You don&apos;t have any foods in cart at this time
                     </p>
 
@@ -123,7 +126,7 @@ function CartPageContent() {
                         </button>
                         <button
                             onClick={() => router.push("/categories")}
-                            className="w-full py-3.5 bg-gray-100 text-gray-700 font-bold text-sm rounded-2xl active:scale-[0.97] transition-all flex items-center justify-center gap-2"
+                            className="w-full py-3.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold text-sm rounded-2xl active:scale-[0.97] transition-all flex items-center justify-center gap-2"
                         >
                             <ShoppingBag className="w-4 h-4" />
                             Explore Categories
@@ -135,23 +138,23 @@ function CartPageContent() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-24 font-sans selection:bg-indigo-100">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24 font-sans selection:bg-indigo-100">
             <div className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto w-full">
                 {/* Header */}
                 <div className="px-5 py-8 flex items-center justify-between sticky top-0 z-30 bg-gray-50/80 backdrop-blur-xl border-b border-gray-100/50 shadow-sm md:mt-4 md:rounded-t-3xl">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => router.back()}
-                            className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-2xl flex items-center justify-center transition-all active:scale-95 group hover:bg-gray-50"
+                            className="w-10 h-10 bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 rounded-2xl flex items-center justify-center transition-all active:scale-95 group hover:bg-gray-50 dark:hover:bg-gray-800"
                         >
-                            <ArrowLeft className="h-5 w-5 text-gray-700 group-hover:-translate-x-0.5 transition-transform" />
+                            <ArrowLeft className="h-5 w-5 text-gray-700 dark:text-gray-300 group-hover:-translate-x-0.5 transition-transform" />
                         </button>
                         <div>
-                            <h1 className="font-black text-2xl text-gray-900 tracking-tight">My Cart</h1>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{items.length} items to checkout</p>
+                            <h1 className="font-black text-2xl text-gray-900 dark:text-gray-100 tracking-tight">My Cart</h1>
+                            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">{items.length} items to checkout</p>
                         </div>
                     </div>
-                    <button className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-2xl flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+                    <button className="w-10 h-10 bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 rounded-2xl flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
                         <MoreHorizontal className="h-6 w-6" />
                     </button>
                 </div>
@@ -172,20 +175,20 @@ function CartPageContent() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-white rounded-[2rem] p-6 shadow-[0_15px_40px_rgba(0,0,0,0.05)] border border-gray-100"
+                        className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 shadow-[0_15px_40px_rgba(0,0,0,0.05)] border border-gray-100 dark:border-gray-800"
                     >
                         <div className="space-y-4 mb-6">
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-400 font-bold text-sm">Item Total</span>
-                                <span className="text-gray-900 font-black text-lg">₹{itemTotal}</span>
+                                <span className="text-gray-400 dark:text-gray-500 font-bold text-sm">Item Total</span>
+                                <span className="text-gray-900 dark:text-gray-100 font-black text-lg">₹{itemTotal}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-400 font-bold text-sm">Delivery Fee</span>
+                                <span className="text-gray-400 dark:text-gray-500 font-bold text-sm">Delivery Fee</span>
                                 <span className="text-emerald-500 font-black text-sm uppercase tracking-widest">Free</span>
                             </div>
-                            <div className="h-px bg-gray-100 w-full" />
+                            <div className="h-px bg-gray-100 dark:bg-gray-800 w-full" />
                             <div className="flex justify-between items-center pt-2">
-                                <span className="text-gray-900 font-black text-xl">Grand Total</span>
+                                <span className="text-gray-900 dark:text-gray-100 font-black text-xl">Grand Total</span>
                                 <span className="text-primary font-black text-2xl">${grandTotal.toFixed(2)}</span>
                             </div>
                         </div>
@@ -271,7 +274,7 @@ function SwipeableCartItem({ item, onRemove, onCheckout }: { item: any, onRemove
                 dragElastic={0.8}
                 onDragEnd={handleDragEnd}
                 style={{ x }}
-                className="absolute inset-0 bg-white rounded-[2rem] p-4 flex gap-5 items-center shadow-[0_10px_30px_rgba(0,0,0,0.03)] z-10 cursor-grab active:cursor-grabbing border border-gray-100/50"
+                className="absolute inset-0 bg-white dark:bg-gray-900 rounded-[2rem] p-4 flex gap-5 items-center shadow-[0_10px_30px_rgba(0,0,0,0.03)] z-10 cursor-grab active:cursor-grabbing border border-gray-100/50"
             >
                 {/* Image Stack Effect */}
                 <div className="relative w-24 h-full flex-shrink-0">
@@ -279,7 +282,7 @@ function SwipeableCartItem({ item, onRemove, onCheckout }: { item: any, onRemove
                     <div className="absolute top-0 bottom-0 -left-1 w-full bg-primary/20 rounded-[1.5rem] transform scale-[0.92] origin-right h-full" />
 
                     {/* Main Image */}
-                    <div className="relative w-full h-full rounded-[1.5rem] overflow-hidden bg-gray-50 flex items-center justify-center text-4xl shadow-md z-10 border-2 border-white ring-1 ring-black/[0.03]">
+                    <div className="relative w-full h-full rounded-[1.5rem] overflow-hidden bg-gray-50 dark:bg-gray-950 flex items-center justify-center text-4xl shadow-md z-10 border-2 border-white ring-1 ring-black/[0.03]">
                         {item.image}
                         <div className="absolute inset-0 bg-gradient-to-tr from-black/5 to-transparent" />
                     </div>
@@ -287,10 +290,10 @@ function SwipeableCartItem({ item, onRemove, onCheckout }: { item: any, onRemove
 
                 {/* Content */}
                 <div className="flex-1 flex flex-col justify-center h-full">
-                    <h3 className="font-black text-gray-900 text-lg leading-tight mb-1 line-clamp-1">{item.name}</h3>
+                    <h3 className="font-black text-gray-900 dark:text-gray-100 text-lg leading-tight mb-1 line-clamp-1">{item.name}</h3>
 
                     <div className="flex items-center gap-2 mb-3">
-                        <div className="px-2 py-0.5 bg-gray-100 rounded-md text-[10px] font-black text-gray-500 uppercase tracking-wider">
+                        <div className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-md text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             {item.qty} items
                         </div>
                         <div className="px-2 py-0.5 bg-primary/10 rounded-md text-[10px] font-black text-primary uppercase tracking-wider">
@@ -302,8 +305,8 @@ function SwipeableCartItem({ item, onRemove, onCheckout }: { item: any, onRemove
                         <span className="font-black text-primary text-xl">
                             ${(item.price * item.qty).toFixed(2)}
                         </span>
-                        <div className="flex items-center gap-3 bg-gray-50 px-2 py-1 rounded-xl border border-gray-100">
-                            <span className="text-xs font-black text-gray-900">Qty: {item.qty}</span>
+                        <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-950 px-2 py-1 rounded-xl border border-gray-100 dark:border-gray-800">
+                            <span className="text-xs font-black text-gray-900 dark:text-gray-100">Qty: {item.qty}</span>
                         </div>
                     </div>
                 </div>
@@ -314,7 +317,7 @@ function SwipeableCartItem({ item, onRemove, onCheckout }: { item: any, onRemove
 
 export default function CartPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50">Loading...</div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">Loading...</div>}>
             <CartPageContent />
         </Suspense>
     )

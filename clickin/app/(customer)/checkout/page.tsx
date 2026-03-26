@@ -55,7 +55,7 @@ function CheckoutPageContent() {
   const [vendorSettings, setVendorSettings] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<
     "UPI_GPAY" | "UPI_PHONEPE" | "UPI_PAYTM" | "UPI_FAMAPP" | "CASH"
-  >("UPI_GPAY");
+  >("UPI_FAMAPP");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showUtrDialog, setShowUtrDialog] = useState(false);
   const [utrNumber, setUtrNumber] = useState("");
@@ -68,6 +68,7 @@ function CheckoutPageContent() {
   const [isPersonalUPI, setIsPersonalUPI] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [showPostPaymentPrompt, setShowPostPaymentPrompt] = useState(false);
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null);
   const qrRef = useRef<any>(null);
 
   // Detect if UPI is personal or merchant
@@ -200,16 +201,16 @@ function CheckoutPageContent() {
 
   if (shop?.isOnline === false) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col pt-16 md:pt-20">
-        <div className="bg-white border-b border-gray-100 flex items-center justify-between px-4 h-16 md:h-20 fixed top-0 w-full z-40 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto shadow-sm">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col pt-16 md:pt-20">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 h-16 md:h-20 fixed top-0 w-full z-40 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto shadow-sm">
           <div className="flex items-center gap-3 md:gap-4">
             <button
               onClick={() => router.back()}
-              className="p-2 md:p-3 hover:bg-gray-50 rounded-full transition-colors active:scale-95"
+              className="p-2 md:p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-full transition-colors active:scale-95"
             >
-              <ArrowLeft className="w-5 h-5 md:w-6 md:h-6 text-gray-700" />
+              <ArrowLeft className="w-5 h-5 md:w-6 md:h-6 text-gray-700 dark:text-gray-300" />
             </button>
-            <h1 className="text-lg md:text-2xl font-black text-gray-900 tracking-tight">
+            <h1 className="text-lg md:text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
               Checkout
             </h1>
           </div>
@@ -218,10 +219,10 @@ function CheckoutPageContent() {
           <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-inner ring-8 ring-red-50">
             <WifiOff className="w-12 h-12 text-red-500" strokeWidth={2.5} />
           </div>
-          <h2 className="text-3xl font-black text-gray-900 mb-3 tracking-tighter">
+          <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-3 tracking-tighter">
             Shop Offline
           </h2>
-          <p className="text-gray-500 text-base max-w-sm mx-auto mb-8 font-medium leading-relaxed">
+          <p className="text-gray-500 dark:text-gray-400 text-base max-w-sm mx-auto mb-8 font-medium leading-relaxed">
             The vendor is currently not accepting new orders. Please wait or
             check back later.
           </p>
@@ -276,19 +277,10 @@ function CheckoutPageContent() {
     };
 
     try {
-      // 1. Create order FIRST (in backend) with the pre-generated ID
-      // We fire this and proceed to payment; the backend uses setDoc(id).
-      createCustomerOrder(
-        orderData as Omit<VendorOrder, "id" | "updatedAt"> & { id: string },
-      ).catch((err) =>
-        console.error("Firestore background write failed:", err),
-      );
-
+      // 1. Save order data to state, but DO NOT create it in backend yet
       setOrderId(generatedOrderId);
+      setPendingOrderData(orderData);
       console.log("Order ID pre-generated:", generatedOrderId);
-
-      setOrderId(generatedOrderId);
-      console.log("Order created:", { orderId: generatedOrderId });
 
       const transactionNote = encodeURIComponent("Order Payment");
       const transactionRef = encodeURIComponent(generatedOrderId);
@@ -403,6 +395,8 @@ function CheckoutPageContent() {
               }
 
               if (fetchedUtr) {
+                // If GPay auto-verifies, create the order now
+                await createCustomerOrder(orderData as any);
                 clearCart();
                 router.push(
                   `/order/${generatedOrderId}?status=PAID&shopId=${shopId || "demo-shop"}&utr=${fetchedUtr}`,
@@ -489,32 +483,24 @@ function CheckoutPageContent() {
     }
   };
 
-  const handleVerifyUtr = async () => {
-    if (utrNumber.length < 12) {
-      setUtrError("Please enter a valid 12-digit UTR/Reference No.");
-      return;
-    }
-
-    // 5. Verify Payment on Backend (Option B - Manual Verification via UPI Reference ID)
+  const handleConfirmPayment = async () => {
+    if (!pendingOrderData) return;
     setIsProcessing(true);
+    setShowPostPaymentPrompt(false);
 
     try {
-      const isVerified = await verifyPaymentUTR(orderId, utrNumber);
-      if (isVerified) {
-        clearCart();
-        setShowUtrDialog(false);
-        // Redirect to order with PAID status inside URL (MVP approach)
-        router.push(
-          `/order/${orderId}?status=PAID&shopId=${shopId || "demo-shop"}&utr=${utrNumber}`,
-        );
-      } else {
-        setUtrError(
-          "Failed to verify payment. Please check UTR and try again.",
-        );
-        setIsProcessing(false);
-      }
+      // Create the order on the backend ONLY now
+      // This reduces stock and sends it to the vendor
+      await createCustomerOrder(pendingOrderData);
+
+      clearCart();
+      // Bypass UTR verification entirely as requested
+      router.push(
+        `/order/${pendingOrderData.id}?status=PAID&shopId=${shopId || "demo-shop"}&utr=CONFIRMED`,
+      );
     } catch (error) {
-      setUtrError("Server error during verification.");
+      console.error("Failed to commit order:", error);
+      window.alert("Something went wrong finalizing your order. Please try again.");
       setIsProcessing(false);
     }
   };
@@ -524,18 +510,18 @@ function CheckoutPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-36 font-sans selection:bg-indigo-100">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-gray-950 pb-36 font-sans selection:bg-indigo-100">
       <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full relative">
         {/* Header */}
-        <div className="bg-white/80 backdrop-blur-md px-4 py-4 flex items-center gap-4 sticky top-0 z-30 border-b border-gray-100 shadow-sm md:mt-4 md:rounded-t-[2rem]">
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 py-4 flex items-center gap-4 sticky top-0 z-30 border-b border-gray-100 dark:border-gray-800 shadow-sm md:mt-4 md:rounded-t-[2rem]">
           <button
             onClick={() => router.back()}
-            className="p-2.5 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-all active:scale-95"
+            className="p-2.5 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 transition-all active:scale-95"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="flex-1">
-            <h1 className="font-bold text-lg text-gray-900 tracking-tight leading-none">
+            <h1 className="font-bold text-lg text-gray-900 dark:text-gray-100 tracking-tight leading-none">
               Checkout
             </h1>
             <p className="text-xs font-medium text-muted-foreground mt-0.5 truncate">
@@ -562,12 +548,12 @@ function CheckoutPageContent() {
           )}
 
           {/* Items List */}
-          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100/50 relative overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 shadow-sm border border-gray-100/50 relative overflow-hidden">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+              <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
                 Order Items
               </h2>
-              <span className="text-xs font-bold bg-gray-50 text-gray-600 px-3 py-1 rounded-full border border-gray-100">
+              <span className="text-xs font-bold bg-gray-50 dark:bg-gray-950 text-gray-600 dark:text-gray-400 px-3 py-1 rounded-full border border-gray-100 dark:border-gray-800">
                 {items.length} {items.length === 1 ? "Item" : "Items"}
               </span>
             </div>
@@ -587,7 +573,7 @@ function CheckoutPageContent() {
                     )}
                   >
                     <div className="flex gap-4 items-start flex-1">
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0">
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 flex-shrink-0">
                         <div className="absolute inset-0 flex items-center justify-center text-2xl">
                           {item.image}
                         </div>
@@ -615,11 +601,11 @@ function CheckoutPageContent() {
                               )}
                             />
                           </div>
-                          <p className="font-bold text-gray-900 text-[15px] leading-tight line-clamp-2">
+                          <p className="font-bold text-gray-900 dark:text-gray-100 text-[15px] leading-tight line-clamp-2">
                             {item.name}
                           </p>
                         </div>
-                        <p className="text-sm font-medium text-gray-500 mt-1">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">
                           ₹{item.price}
                         </p>
                         {isOut && (
@@ -635,10 +621,10 @@ function CheckoutPageContent() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-3">
-                      <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1 border border-gray-100">
+                      <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-950 rounded-lg p-1 border border-gray-100 dark:border-gray-800">
                         <button
                           onClick={() => updateQuantity(item.id, -1)}
-                          className="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm border border-gray-100 text-gray-600 hover:text-red-500 hover:bg-red-50 transition-colors active:scale-95"
+                          className="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-900 rounded-md shadow-sm border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors active:scale-95"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
@@ -649,16 +635,16 @@ function CheckoutPageContent() {
                           onClick={() => updateQuantity(item.id, 1)}
                           disabled={!canAdd}
                           className={cn(
-                            "w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm border border-gray-100 transition-colors active:scale-95",
+                            "w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-900 rounded-md shadow-sm border border-gray-100 dark:border-gray-800 transition-colors active:scale-95",
                             canAdd
-                              ? "text-gray-600 hover:text-green-500 hover:bg-green-50"
+                              ? "text-gray-600 dark:text-gray-400 hover:text-green-500 hover:bg-green-50"
                               : "text-gray-300 cursor-not-allowed",
                           )}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <span className="font-bold text-gray-900 text-base tabular-nums">
+                      <span className="font-bold text-gray-900 dark:text-gray-100 text-base tabular-nums">
                         ₹{item.price * item.qty}
                       </span>
                     </div>
@@ -671,16 +657,16 @@ function CheckoutPageContent() {
           {/* Upsell / Complete your meal */}
           {recommendedItems.length > 0 && (
             <div className="space-y-3 px-1">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">
+              <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest pl-1">
                 Complete your meal
               </h2>
               <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
                 {recommendedItems.map((item: any) => (
                   <div
                     key={item.id}
-                    className="min-w-[160px] bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex flex-col gap-2 relative group hover:border-primary/20 transition-colors"
+                    className="min-w-[160px] bg-white dark:bg-gray-900 rounded-2xl p-3 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col gap-2 relative group hover:border-primary/20 transition-colors"
                   >
-                    <div className="relative w-full h-24 rounded-xl overflow-hidden bg-gray-50">
+                    <div className="relative w-full h-24 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-950">
                       <div className="absolute inset-0 flex items-center justify-center text-4xl">
                         {item.image}
                       </div>
@@ -702,17 +688,17 @@ function CheckoutPageContent() {
                             )}
                           />
                         </div>
-                        <p className="text-xs font-bold text-gray-900 line-clamp-1">
+                        <p className="text-xs font-bold text-gray-900 dark:text-gray-100 line-clamp-1">
                           {item.name}
                         </p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                           ₹{item.price}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="bg-white text-emerald-600 text-xs font-black px-3 py-1.5 rounded-lg border border-emerald-100 shadow-sm uppercase hover:bg-emerald-50 active:scale-95 transition-all"
+                          className="bg-white dark:bg-gray-900 text-emerald-600 text-xs font-black px-3 py-1.5 rounded-lg border border-emerald-100 shadow-sm uppercase hover:bg-emerald-50 active:scale-95 transition-all"
                         >
                           ADD
                         </button>
@@ -725,25 +711,25 @@ function CheckoutPageContent() {
           )}
 
           {/* Bill Summary */}
-          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100/50 space-y-4 relative">
+          <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 shadow-sm border border-gray-100/50 space-y-4 relative">
             {/* Dashed line decoration */}
             <div className="absolute -top-3 left-0 right-0 h-6 overflow-hidden">
-              <div className="w-full h-full border-b-2 border-dashed border-gray-100"></div>
+              <div className="w-full h-full border-b-2 border-dashed border-gray-100 dark:border-gray-800"></div>
             </div>
 
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+            <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">
               Payment Details
             </h2>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between text-gray-600">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>Item Total</span>
-                <span className="text-gray-900 font-medium tabular-nums">
+                <span className="text-gray-900 dark:text-gray-100 font-medium tabular-nums">
                   ₹{itemTotal}
                 </span>
               </div>
-              <div className="border-t border-dashed border-gray-200 mt-2 pt-4 flex justify-between items-center">
-                <span className="font-bold text-lg text-gray-900">
+              <div className="border-t border-dashed border-gray-200 dark:border-gray-700 mt-2 pt-4 flex justify-between items-center">
+                <span className="font-bold text-lg text-gray-900 dark:text-gray-100">
                   Total Payable
                 </span>
                 <span className="font-black text-xl text-primary tabular-nums tracking-tight">
@@ -755,7 +741,7 @@ function CheckoutPageContent() {
 
           {/* Payment Method */}
           <div>
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 px-1">
+            <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 px-1">
               Pay via UPI App
             </h2>
             <div className="grid grid-cols-1 gap-3">
@@ -763,7 +749,7 @@ function CheckoutPageContent() {
               {/* <button
                 onClick={() => handlePaymentWithMethod("UPI_GPAY")}
                 disabled={isProcessing}
-                className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative px-5 py-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
                   <Image className="w-10 h-10 rounded-xl ] flex items-center justify-center shadow-sm"
@@ -773,7 +759,7 @@ function CheckoutPageContent() {
       height={50}           
       priority               // Recommended for logos to load immediately
     />
-                  <span className="font-semibold text-[15px] text-gray-800">
+                  <span className="font-semibold text-[15px] text-gray-800 dark:text-gray-200">
                     Google Pay
                   </span>
                 </div>
@@ -786,7 +772,7 @@ function CheckoutPageContent() {
                   )}
                 >
                   {paymentMethod === "UPI_GPAY" && (
-                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                    <div className="w-2.5 h-2.5 bg-white dark:bg-gray-900 rounded-full" />
                   )}
                 </div>
               </button>
@@ -795,7 +781,7 @@ function CheckoutPageContent() {
               {/* <button
                 onClick={() => handlePaymentWithMethod("UPI_PHONEPE")}
                 disabled={isProcessing}
-                className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative px-5 py-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
                    <Image className="w-10 h-10 rounded-xl bg-[#5F259F] flex items-center justify-center shadow-sm"
@@ -805,7 +791,7 @@ function CheckoutPageContent() {
       height={50}           
       priority               // Recommended for logos to load immediately
     />
-                  <span className="font-semibold text-[15px] text-gray-800">
+                  <span className="font-semibold text-[15px] text-gray-800 dark:text-gray-200">
                     PhonePe
                   </span>
                 </div>
@@ -818,7 +804,7 @@ function CheckoutPageContent() {
                   )}
                 >
                   {paymentMethod === "UPI_PHONEPE" && (
-                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                    <div className="w-2.5 h-2.5 bg-white dark:bg-gray-900 rounded-full" />
                   )}
                 </div>
               </button> */}
@@ -827,7 +813,7 @@ function CheckoutPageContent() {
               {/* <button
                 onClick={() => handlePaymentWithMethod("UPI_PAYTM")}
                 disabled={isProcessing}
-                className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative px-5 py-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
                   <Image className="w-10 h-10 rounded-xl bg-[#00b9f1] flex items-center justify-center shadow-sm"
@@ -837,7 +823,7 @@ function CheckoutPageContent() {
       height={50}           
       priority               // Recommended for logos to load immediately
     />
-                  <span className="font-semibold text-[15px] text-gray-800">
+                  <span className="font-semibold text-[15px] text-gray-800 dark:text-gray-200">
                     Paytm
                   </span>
                 </div>
@@ -850,7 +836,7 @@ function CheckoutPageContent() {
                   )}
                 >
                   {paymentMethod === "UPI_PAYTM" && (
-                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                    <div className="w-2.5 h-2.5 bg-white dark:bg-gray-900 rounded-full" />
                   )}
                 </div>
               </button> 
@@ -860,7 +846,7 @@ function CheckoutPageContent() {
               <button
                 onClick={() => handlePaymentWithMethod("UPI_FAMAPP")}
                 disabled={isProcessing}
-                className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative px-5 py-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
                 <Image className="w-10 h-10 rounded-xl bg-[#00b9f1] flex items-center justify-center shadow-sm"
@@ -871,7 +857,7 @@ function CheckoutPageContent() {
       priority               // Recommended for logos to load immediately
     />
 
-                  <span className="font-semibold text-[15px] text-gray-800">
+                  <span className="font-semibold text-[15px] text-gray-800 dark:text-gray-200">
                     FamApp
                   </span>
                 </div>
@@ -884,7 +870,7 @@ function CheckoutPageContent() {
                   )}
                 >
                   {paymentMethod === "UPI_FAMAPP" && (
-                    <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                    <div className="w-2.5 h-2.5 bg-white dark:bg-gray-900 rounded-full" />
                   )}
                 </div>
               </button>
@@ -892,8 +878,10 @@ function CheckoutPageContent() {
           </div>
         </div>
 
+        
+
         {/* Pay Button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-50">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-50">
           <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
             <button
               onClick={() => handlePaymentWithMethod(paymentMethod)}
@@ -931,107 +919,31 @@ function CheckoutPageContent() {
       {/* Post-Payment Prompt - After auto-opening UPI app */}
       {showPostPaymentPrompt && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center">
                 <ShieldCheck className="w-6 h-6 text-emerald-600" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Payment Status</h3>
-                <p className="text-xs text-gray-500">Did you complete the payment?</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Payment Status</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Did you complete the payment?</p>
               </div>
             </div>
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => {
-                  setShowPostPaymentPrompt(false);
-                  setShowUtrDialog(true);
-                }}
+                onClick={handleConfirmPayment}
                 className="w-full bg-emerald-500 text-white font-bold py-3.5 rounded-xl text-[15px] hover:bg-emerald-600 transition-colors shadow-sm active:scale-[0.98]"
               >
-                Yes, Verify Payment
+                Yes, Payment Completed
               </button>
               <button
                 onClick={() => {
                   setShowPostPaymentPrompt(false);
                 }}
-                className="w-full bg-gray-100 text-gray-700 font-bold py-3.5 rounded-xl text-[15px] hover:bg-gray-200 transition-colors active:scale-[0.98]"
+                className="w-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold py-3.5 rounded-xl text-[15px] hover:bg-gray-200 transition-colors active:scale-[0.98]"
               >
                 No, Go Back
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* UTR Verification Dialog (Option B: Manual Verification via UPI Reference ID) */}
-      {showUtrDialog && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                  Verify Payment
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Please enter the 12-digit UTR/Reference No. from your UPI app
-                  to confirm your order.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowUtrDialog(false)}
-                className="bg-gray-50 hover:bg-gray-100 p-2 rounded-full text-gray-500 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1 mb-2 block">
-                  UTR / Reference ID
-                </label>
-                <input
-                  type="text"
-                  maxLength={16}
-                  value={utrNumber}
-                  onChange={(e) => {
-                    setUtrNumber(e.target.value);
-                    setUtrError("");
-                  }}
-                  placeholder="e.g. 301234567890"
-                  className={cn(
-                    "w-full bg-gray-50 border px-4 py-3.5 rounded-xl text-gray-900 font-medium placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:bg-white transition-all text-[16px]",
-                    utrError
-                      ? "border-red-300 focus:ring-red-200"
-                      : "border-gray-200 focus:ring-primary/20 focus:border-primary",
-                  )}
-                />
-                {utrError && (
-                  <p className="text-red-500 text-xs font-medium mt-2 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    {utrError}
-                  </p>
-                )}
-              </div>
-
-              <button
-                onClick={handleVerifyUtr}
-                disabled={isProcessing || utrNumber.length < 5}
-                className="w-full bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 hover:bg-emerald-600 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-              >
-                {isProcessing ? (
-                  <Clock className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>Verify & Confirm Order</>
-                )}
-              </button>
-
-              <p className="text-center text-xs text-gray-400 font-medium px-4">
-                Once verified, your order QR code will be generated
-                automatically.
-              </p>
             </div>
           </div>
         </div>

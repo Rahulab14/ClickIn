@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebase";
+import { createCustomerNotification } from "./customer-service";
 import {
     collection,
     doc,
@@ -484,14 +485,48 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, ex
     if (!orderId) return;
     const data: Record<string, unknown> = { status, updatedAt: new Date().toISOString(), ...extra };
     if (status === "COMPLETED") data.completedAt = new Date().toISOString();
-    await updateDoc(doc(db, "orders", orderId), data);
+    
+    const orderRef = doc(db, "orders", orderId);
+    const orderDoc = await getDoc(orderRef);
+    
+    await updateDoc(orderRef, data);
+
+    if (status === "COMPLETED" && orderDoc.exists()) {
+        const orderData = orderDoc.data() as VendorOrder;
+        if (orderData.customerId) {
+            const shopDoc = await getDoc(doc(db, "shops", orderData.shopId));
+            const shopName = shopDoc.exists() ? shopDoc.data().name : "the shop";
+            await createCustomerNotification(orderData.customerId, {
+                title: "Order Successful!",
+                message: `Your food from ${shopName} is ready and your order is complete. Enjoy your meal 😋`,
+                type: "success"
+            }).catch(console.error);
+        }
+    }
 }
 
 export async function cancelOrder(orderId: string, reason: string, cancelledBy: string): Promise<void> {
     if (!orderId) return;
-    await updateDoc(doc(db, "orders", orderId), {
+    
+    const orderRef = doc(db, "orders", orderId);
+    const orderDoc = await getDoc(orderRef);
+
+    await updateDoc(orderRef, {
         status: "CANCELLED", cancelReason: reason, cancelledBy, updatedAt: new Date().toISOString(),
     });
+
+    if (orderDoc.exists()) {
+        const orderData = orderDoc.data() as VendorOrder;
+        if (orderData.customerId) {
+            const shopDoc = await getDoc(doc(db, "shops", orderData.shopId));
+            const shopName = shopDoc.exists() ? shopDoc.data().name : "the shop";
+            await createCustomerNotification(orderData.customerId, {
+                title: "Order Cancelled!",
+                message: `Your order at ${shopName} was cancelled. Reason: ${reason}. We apologize for the inconvenience.`,
+                type: "error"
+            }).catch(console.error);
+        }
+    }
 }
 
 // Real-time order listener

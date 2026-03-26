@@ -27,7 +27,7 @@ export default async function CategoryDetailPage({ params }: { params: Promise<{
     }
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white dark:bg-gray-900">
             <CategoryDetailClient slug={slug} shops={matchingShops} />
         </div>
     )

@@ -115,16 +115,16 @@ export default function CustomerOrdersPage() {
             <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full relative">
 
                 {/* Header */}
-                <header className="bg-white/70 backdrop-blur-xl px-5 py-5 flex items-center justify-between sticky top-0 z-30 border-b border-gray-100 shadow-sm md:mt-6 md:rounded-t-[2.5rem] transition-all duration-300">
+                <header className="bg-white/70 backdrop-blur-xl px-5 py-5 flex items-center justify-between sticky top-0 z-30 border-b border-gray-100 dark:border-gray-800 shadow-sm md:mt-6 md:rounded-t-[2.5rem] transition-all duration-300">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => router.back()}
-                            className="p-3 -ml-1 rounded-2xl bg-white shadow-sm border border-gray-100 text-gray-700 hover:text-black hover:bg-gray-50 transition-all active:scale-95 group"
+                            className="p-3 -ml-1 rounded-2xl bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:text-black hover:bg-gray-50 dark:hover:bg-gray-800 transition-all active:scale-95 group"
                         >
                             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
                         </button>
                         <div>
-                            <h1 className="text-2xl font-black text-gray-900 leading-none tracking-tight">Your Orders</h1>
+                            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 leading-none tracking-tight">Your Orders</h1>
                             <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-1.5 opacity-70">Live Activity</p>
                         </div>
                     </div>
@@ -134,7 +134,7 @@ export default function CustomerOrdersPage() {
                 </header>
 
                 {/* Tabs */}
-                <div className="flex items-center px-4 bg-white/40 backdrop-blur-md border-b border-gray-100 z-10 relative">
+                <div className="flex items-center px-4 bg-white/40 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 z-10 relative">
                     {(["Active", "History"] as const).map((t) => {
                         const isActive = tab === t
                         return (
@@ -143,7 +143,7 @@ export default function CustomerOrdersPage() {
                                 onClick={() => setTab(t)}
                                 className={cn(
                                     "flex-1 pb-4 pt-4 text-[13px] font-black uppercase tracking-widest transition-all relative overflow-hidden",
-                                    isActive ? "text-emerald-700" : "text-gray-400 hover:text-gray-600"
+                                    isActive ? "text-emerald-700" : "text-gray-400 dark:text-gray-500 hover:text-gray-600"
                                 )}
                             >
                                 <span className="relative z-10">{t}</span>
@@ -170,10 +170,10 @@ export default function CustomerOrdersPage() {
                     ) : !user ? (
                         <div className="text-center py-20 px-6 bg-white/50 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-sm">
                             <div className="w-16 h-16 bg-gray-100/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-white">
-                                <Clock className="w-8 h-8 text-gray-400" />
+                                <Clock className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                             </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Login Required</h3>
-                            <p className="text-gray-500 font-medium mb-6 text-sm">Please log in to view and track your orders.</p>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Login Required</h3>
+                            <p className="text-gray-500 dark:text-gray-400 font-medium mb-6 text-sm">Please log in to view and track your orders.</p>
                             <button onClick={() => router.push("/login")} className="bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-600 active:scale-95 transition-all shadow-lg shadow-emerald-500/25">
                                 Login Now
                             </button>
@@ -181,23 +181,23 @@ export default function CustomerOrdersPage() {
                     ) : orders.length === 0 ? (
                         <div className="text-center py-20 px-6 bg-white/50 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-sm">
                             <div className="w-16 h-16 bg-gray-100/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-white">
-                                <Receipt className="w-8 h-8 text-gray-400" />
+                                <Receipt className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                             </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">No {tab.toLowerCase()} orders</h3>
-                            <p className="text-gray-500 font-medium text-sm">When you place an order, it will appear here.</p>
-                            <button onClick={() => router.push("/")} className="mt-6 bg-white text-gray-900 border border-gray-200 px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 active:scale-95 transition-all text-sm shadow-sm inline-flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No {tab.toLowerCase()} orders</h3>
+                            <p className="text-gray-500 dark:text-gray-400 font-medium text-sm">When you place an order, it will appear here.</p>
+                            <button onClick={() => router.push("/")} className="mt-6 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-all text-sm shadow-sm inline-flex items-center gap-2">
                                 Browse Menu <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
                     ) : (
                         orders.map((order) => (
-                            <div key={order.id} className="bg-white rounded-[2.5rem] p-5 shadow-sm border border-gray-100 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/40 group relative overflow-hidden border-b-4 border-b-transparent hover:border-b-emerald-400">
+                            <div key={order.id} className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-5 shadow-sm border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/40 group relative overflow-hidden border-b-4 border-b-transparent hover:border-b-emerald-400">
 
                                 {/* Card Top */}
                                 <div className="flex gap-5 mb-6 relative z-10">
                                     {/* Image Container */}
                                     <div className="relative shrink-0 group">
-                                        <div className="w-[90px] h-[90px] rounded-[2rem] overflow-hidden bg-gray-50 border border-gray-100 shadow-sm flex items-center justify-center transition-transform duration-500 group-hover:scale-[1.05]">
+                                        <div className="w-[90px] h-[90px] rounded-[2rem] overflow-hidden bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-center transition-transform duration-500 group-hover:scale-[1.05]">
                                             <img
                                                 src={order.image}
                                                 alt={order.hotelName}
@@ -206,7 +206,7 @@ export default function CustomerOrdersPage() {
                                         </div>
                                         {tab === "Active" && (
                                             <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center animate-pulse">
-                                                <div className="w-2 h-2 bg-white rounded-full" />
+                                                <div className="w-2 h-2 bg-white dark:bg-gray-900 rounded-full" />
                                             </div>
                                         )}
                                     </div>
@@ -214,7 +214,7 @@ export default function CustomerOrdersPage() {
                                     {/* Info Content */}
                                     <div className="flex flex-col justify-center flex-1">
                                         <div className="flex items-start justify-between gap-3 mb-2">
-                                            <h3 className="font-black text-lg text-gray-900 leading-none tracking-tight group-hover:text-emerald-600 transition-colors">
+                                            <h3 className="font-black text-lg text-gray-900 dark:text-gray-100 leading-none tracking-tight group-hover:text-emerald-600 transition-colors">
                                                 {order.hotelName}
                                             </h3>
                                             <div className={cn(
@@ -227,14 +227,14 @@ export default function CustomerOrdersPage() {
                                             </div>
                                         </div>
 
-                                        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <p className="text-gray-400 dark:text-gray-500 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                                             <span>{order.itemsCount} items</span>
                                             <span className="h-1 w-1 bg-gray-200 rounded-full" />
                                             <span>{order.distance}</span>
                                         </p>
 
                                         <div className="flex items-center gap-2">
-                                            <span className="text-gray-900 font-black text-xl tracking-tighter">
+                                            <span className="text-gray-900 dark:text-gray-100 font-black text-xl tracking-tighter">
                                                 ₹{order.price.toFixed(2)}
                                             </span>
                                         </div>
@@ -253,7 +253,7 @@ export default function CustomerOrdersPage() {
                                     {tab === "History" && order.status === "COMPLETED" && (
                                         <button
                                             onClick={() => handleOrderAgain(order)}
-                                            className="flex-1 py-4 px-4 rounded-[1.5rem] border border-gray-100 bg-white text-gray-600 font-black text-[12px] uppercase tracking-widest hover:bg-gray-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                            className="flex-1 py-4 px-4 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 font-black text-[12px] uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                                         >
                                             <RotateCcw className="h-4 w-4" />
                                             Re-order

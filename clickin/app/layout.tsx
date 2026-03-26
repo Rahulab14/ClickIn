@@ -16,23 +16,26 @@ import { Providers } from "./providers";
 import { RoleGuard } from "./RoleGuard";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://clickin.co.in"),
   title: {
-    default: "ClickIn - Self Billing Platform",
-    template: "%s | ClickIn",
+    default: "Clickin - Smart Canteen Ordering Platform",
+    template: "%s | Clickin",
   },
   description:
-    "ClickIn is the premier self-billing platform for quick service restaurants and food delivery. Browse local shops, order food, track deliveries, and manage your dining experience with ease.",
+    "Clickin is a smart QR-based food ordering system for college canteens. Scan, order, pay and pickup without waiting.",
   keywords: [
+    "clickin",
+    "clickin app",
+    "clickin canteen",
+    "smart canteen ordering",
+    "qr food ordering system",
     "self-billing",
     "food delivery",
     "restaurants",
-    "orders",
-    "quick service",
-    "food ordering platform",
   ],
-  authors: [{ name: "ClickIn" }],
-  creator: "ClickIn",
-  publisher: "ClickIn",
+  authors: [{ name: "Clickin" }],
+  creator: "Clickin",
+  publisher: "Clickin",
   formatDetection: {
     email: false,
     telephone: false,
@@ -44,24 +47,24 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    locale: "en_US",
-    url: "https://clickin.app",
-    title: "ClickIn - Self Billing Platform",
-    description:
-      "The premier self-billing platform for quick service restaurants and food delivery",
+    locale: "en_IN",
+    url: "https://clickin.co.in",
+    siteName: "Clickin",
+    title: "Clickin - Smart Canteen Ordering Platform",
+    description: "Smart QR-based food ordering system for college canteens. Order, pay and pickup without waiting.",
     images: [
       {
         url: "/logo.png",
         width: 1200,
         height: 630,
-        alt: "ClickIn Logo",
+        alt: "Clickin Logo",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ClickIn - Self Billing Platform",
-    description: "Order food and manage billing with ClickIn",
+    title: "Clickin - Smart Canteen Ordering Platform",
+    description: "Order food and manage billing with the Clickin smart canteen ordering system.",
     images: ["/logo.png"],
   },
 };
@@ -71,25 +74,68 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const schemaData = {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    name: "ClickIn",
-    description:
-      "ClickIn is the premier self-billing platform for quick service restaurants and food delivery",
-    url: "https://clickin.app",
-    applicationCategory: "FoodDelivery",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
+  const schemaData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      name: "Clickin",
+      description:
+        "Clickin is the premier self-billing platform for quick service restaurants and food delivery",
+      url: "https://clickin.co.in",
+      applicationCategory: "FoodDelivery",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.8",
+        ratingCount: "350",
+      },
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.5",
-      ratingCount: "250",
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "Clickin",
+      url: "https://clickin.co.in/",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: "https://clickin.co.in/shop?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
     },
-  };
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: [
+        {
+          "@type": "SiteNavigationElement",
+          position: 1,
+          name: "Explore Categories",
+          url: "https://clickin.co.in/categories"
+        },
+        {
+          "@type": "SiteNavigationElement",
+          position: 2,
+          name: "All Shops",
+          url: "https://clickin.co.in/shop"
+        },
+        {
+          "@type": "SiteNavigationElement",
+          position: 3,
+          name: "My Orders",
+          url: "https://clickin.co.in/orders"
+        },
+        {
+          "@type": "SiteNavigationElement",
+          position: 4,
+          name: "Help & Support",
+          url: "https://clickin.co.in/help"
+        }
+      ]
+    }
+  ];
 
   return (
     <html lang="en" suppressHydrationWarning>

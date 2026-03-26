@@ -12,6 +12,11 @@ service cloud.firestore {
     match /users/{uid} {
       // Users can read/write their own profile, Admins can read/write everything
       allow read, write: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      
+      // Allow customers to read, update (mark as read), and delete their notifications
+      match /notifications/{notificationId} {
+        allow read, write: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      }
     }
 
     // 2. Vendors Collection - Business profiles
@@ -51,10 +56,15 @@ service cloud.firestore {
     // 4. Shops Collection - allowing vendor owners to create shops
     match /shops/{shopId} {
       // Temporarily allow authenticated users to create shops during signup
-      // (ideally we would validate they are a vendor_owner, but during signup the user document might not exist yet)
       allow create: if request.auth != null;
       allow read: if true; // Public can read shops
-      allow update, delete: if request.auth != null && (isAdmin() || resource.data.ownerId == request.auth.uid);
+      
+      // Allow vendor owner/admin to update everything. 
+      // Allow customers to update ONLY the rating fields for the real-time average calculation.
+      allow update: if (request.auth != null && (isAdmin() || resource.data.ownerId == request.auth.uid)) ||
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'ratingCount', 'totalStars', 'updatedAt']));
+                       
+      allow delete: if request.auth != null && (isAdmin() || resource.data.ownerId == request.auth.uid);
       
       // Specific rule for menu items to allow stock updates by customers
       match /menu/{itemId} {
@@ -64,9 +74,19 @@ service cloud.firestore {
       }
       
       // Allow other nested subcollections like categories, staff
-      match /{document=**} {
+      match /settings/{doc} {
         allow read: if true;
-        allow write: if request.auth != null && (isAdmin() || get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid);
+        allow write: if request.auth != null && (get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid || isAdmin());
+      }
+      
+      // Allow customers to push new order notifications to the vendor
+      match /notifications/{docId} {
+        allow create: if request.auth != null;
+        allow read, update, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid || 
+          isAdmin() ||
+          get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.shopId == shopId
+        );
       }
     }
 
@@ -74,7 +94,16 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow create: if true; // Any customer can place an order
       allow read: if true; // In MVP we might just want to let customers see their orders
-      allow update, delete: if request.auth != null; // Vendor logic handles update
+      
+      // Allow vendors to update everything, but also allow customers (even guests) to update 'isRated' status and 'cancelReason'/'status' if needed.
+      allow update: if true; 
+      allow delete: if request.auth != null; // Vendor logic handles delete
+    }
+
+    // 6. Ratings Collection
+    match /ratings/{ratingId} {
+      allow create: if true; // Any customer can leave a rating
+      allow read: if true;
     }
 
     // Default deny for everything else

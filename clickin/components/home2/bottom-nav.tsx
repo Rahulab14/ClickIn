@@ -20,7 +20,7 @@ export function Home2BottomNav() {
   };
 
   return (
-    <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
+    <nav aria-label="Bottom Navigation" className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
       <div className="relative w-[calc(100%-32px)] sm:w-[380px] md:w-[420px] h-[72px] pointer-events-auto">
         {/* SVG Background for the Curve */}
         <div
@@ -182,6 +182,6 @@ export function Home2BottomNav() {
           </div>
         </div>
       </div>
-    </div>
+    </nav>
   );
 }
