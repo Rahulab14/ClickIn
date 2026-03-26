@@ -17,23 +17,26 @@ import {
   ShieldCheck,
   AlertTriangle,
   WifiOff,
+  Download,
+  Copy,
+  QrCode,
 } from "lucide-react";
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/context/customer/CartContext";
 import { useAuth } from "@/context/auth/AuthContext";
+import QRCode from "react-qr-code";
 import {
   createCustomerOrder,
   verifyPaymentUTR,
   getShop,
   subscribeToMenuItems,
   subscribeToShop,
+  subscribeToSettings,
 } from "@/lib/vendor-service";
 import type { VendorOrder, VendorMenuItem } from "@/lib/types/vendor";
 import Image from "next/image";
 import { PremiumLoader } from "@/components/ui/PremiumLoader";
-
-
 
 function CheckoutPageContent() {
   const searchParams = useSearchParams();
@@ -49,6 +52,7 @@ function CheckoutPageContent() {
   const { user } = useAuth();
   const [shop, setShop] = useState<any>(null);
   const [liveMenu, setLiveMenu] = useState<VendorMenuItem[]>([]);
+  const [vendorSettings, setVendorSettings] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<
     "UPI_GPAY" | "UPI_PHONEPE" | "UPI_PAYTM" | "UPI_FAMAPP" | "CASH"
   >("UPI_GPAY");
@@ -61,6 +65,36 @@ function CheckoutPageContent() {
   const [upiLink, setUpiLink] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState<string>("");
+  const [isPersonalUPI, setIsPersonalUPI] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [showPostPaymentPrompt, setShowPostPaymentPrompt] = useState(false);
+  const qrRef = useRef<any>(null);
+
+  // Detect if UPI is personal or merchant
+  const isPersonalUPIId = (upiId: string): boolean => {
+    if (!upiId) return false;
+    // Merchant UPI providers: @paytmqr, @okhdfcbank, @okaxis (merchant only), @bikaji, @ldgr, etc.
+    // Personal: most @okaxis, @okicici, @okidbi, personal bank UPIs
+    const merchantProviders =
+      /@(paytmqr|okhdfcbank|bikaji|ldgr|upi|ibl|airtelpaytm|apl)/i;
+    const hasProvider = merchantProviders.test(upiId);
+    return !hasProvider;
+  };
+
+  // Generate UPI link without tr parameter for better compatibility across apps (Setu style)
+  const generateUPILink = (
+    upiId: string,
+    shopName: string,
+    amount: string,
+    orderRef: string,
+    _isPersonal: boolean,
+  ): string => {
+    const encodedShopName = encodeURIComponent(shopName);
+    const transactionNote = encodeURIComponent(`${shopName} | ${orderRef}`);
+
+    // Always use generic upi://pay without 'tr' parameter for maximum compatibility
+    return `upi://pay?pa=${upiId}&pn=${encodedShopName}&am=${amount}&cu=INR&tn=${transactionNote}`;
+  };
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -103,6 +137,17 @@ function CheckoutPageContent() {
     return () => {
       unsubMenu();
       unsubShop();
+    };
+  }, [shopId]);
+
+  // Ensure fallback to settings.upiId when shop.upiId hasn't propagated yet
+  useEffect(() => {
+    if (!shopId) return;
+    const unsubSettings = subscribeToSettings(shopId, (settings) => {
+      setVendorSettings(settings);
+    });
+    return () => {
+      unsubSettings();
     };
   }, [shopId]);
 
@@ -195,6 +240,7 @@ function CheckoutPageContent() {
     method: "UPI_GPAY" | "UPI_PHONEPE" | "UPI_PAYTM" | "UPI_FAMAPP" | "CASH",
   ) => {
     setPaymentMethod(method);
+    setSelectedPaymentMethod(method);
     setIsProcessing(true);
 
     const mappedItems = items.map((item) => ({
@@ -244,21 +290,51 @@ function CheckoutPageContent() {
       setOrderId(generatedOrderId);
       console.log("Order created:", { orderId: generatedOrderId });
 
+      const transactionNote = encodeURIComponent("Order Payment");
+      const transactionRef = encodeURIComponent(generatedOrderId);
+
       if (method.startsWith("UPI")) {
         // 2. Trigger UPI Intent from Frontend
-        const upiId = (shop?.upiId || "balajier2006@okaxis").trim();
+        // Use famappUpiId for FamApp payments, otherwise use regular upiId
+        const upiId =
+          method === "UPI_FAMAPP"
+            ? (vendorSettings?.famappUpiId || "").trim()
+            : (vendorSettings?.upiId || shop?.upiId || "").trim();
         const rawShopName = shop?.name || "Shop";
         const shopName = encodeURIComponent(rawShopName);
         const amount = grandTotal.toFixed(2);
-        const validateUpi = (u: string) => /^[\w.\-]{3,}@[a-zA-Z]+$/.test(u);
-        if (!validateUpi(upiId)) {
-          // let the user know, but still attempt the intent in case the bank accepts it
+        const validateUpi = (u: string) =>
+          /^[a-zA-Z0-9._\-]{2,256}@[a-zA-Z0-9.\-]{2,64}$/.test(u);
+
+        if (!upiId) {
+          setIsProcessing(false);
+          const appName = method === "UPI_FAMAPP" ? "FamApp" : "UPI";
           window.alert(
-            "Warning: the UPI ID seems malformed. Please double-check with the vendor.",
+            `Merchant ${appName} UPI ID is missing. Cannot proceed with ${appName} payment.`,
           );
+          return;
         }
 
+        if (!validateUpi(upiId)) {
+          setIsProcessing(false);
+          window.alert(
+            "Invalid UPI ID. Please check with merchant and try again.",
+          );
+          return;
+        }
+
+        const isPersonalId = isPersonalUPIId(upiId);
+        setIsPersonalUPI(isPersonalId);
+        const upiLink = generateUPILink(
+          upiId,
+          rawShopName,
+          amount,
+          generatedOrderId,
+          isPersonalId,
+        );
+
         if (method === "UPI_GPAY" && "PaymentRequest" in window) {
+          // GPay: Try PaymentRequest API first for auto-verification
           const supportedInstruments = [
             {
               supportedMethods: ["https://tez.google.com/pay"],
@@ -289,7 +365,6 @@ function CheckoutPageContent() {
               paymentDetails,
             );
 
-            // Fast fail if unsupported
             const canMakePayment = await Promise.race([
               request.canMakePayment(),
               new Promise<boolean>((resolve) =>
@@ -332,56 +407,80 @@ function CheckoutPageContent() {
                 router.push(
                   `/order/${generatedOrderId}?status=PAID&shopId=${shopId || "demo-shop"}&utr=${fetchedUtr}`,
                 );
-                return; // Exit here, no dialog needed
+                return;
               }
-            } else {
-              window.location.href = `tez://upi/pay?pa=${upiId}&pn=${shopName}&am=${amount}&cu=INR&tn=Order%20${generatedOrderId}`;
             }
+            // If PaymentRequest not available or failed, fall through to auto-open
           } catch (err: any) {
-            console.error("Payment Request API Failed:", err);
-            if (err.name === "NotSupportedError") {
-              window.location.href = `gpay://upi/pay?pa=${upiId}&pn=${shopName}&am=${amount}&cu=INR&tn=Order%20${generatedOrderId}`;
-            } else {
-              window.location.href = `tez://upi/pay?pa=${upiId}&pn=${shopName}&am=${amount}&cu=INR&tn=Order%20${generatedOrderId}`;
-            }
+            console.error("Payment Request API Failed, falling back to intent:", err);
           }
-        } else {
-          let intentPrefix = "upi://pay";
-          if (method === "UPI_GPAY") intentPrefix = "tez://upi/pay";
-          if (method === "UPI_PHONEPE") intentPrefix = "phonepe://pay";
-          if (method === "UPI_PAYTM") intentPrefix = "paytmmp://pay";
-          if (method === "UPI_FAMAPP") intentPrefix = "fampay://pay"; // Use specific fampay intent scheme
-
-          const upiLink = `${intentPrefix}?pa=${upiId}&pn=${shopName}&am=${amount}&cu=INR&tn=Order%20${generatedOrderId}`;
-
-          window.location.href = upiLink;
         }
 
-        // 3. Show UTR verification dialog after returning from intent
+        // 1. App-specific deep link mapping
+        let appLink = upiLink; // default is upi://pay
+        if (method === "UPI_GPAY") {
+          appLink = upiLink.replace("upi://pay", "tez://upi/pay");
+        } else if (method === "UPI_PHONEPE") {
+          appLink = upiLink.replace("upi://pay", "phonepe://pay");
+        } else if (method === "UPI_PAYTM") {
+          appLink = upiLink.replace("upi://pay", "paytmmp://pay");
+        }
+
+        // 2. Try app-specific link first
+        setUpiLink(appLink);
+        window.location.href = appLink;
+
+        // 3. Fallback to generic upi://pay if specific app isn't installed (Setu style)
+        if (appLink !== upiLink) {
+          setTimeout(() => {
+            window.location.href = upiLink;
+          }, 1000);
+        }
+
+        // 4. After returning from the app, show post-payment prompt
         setTimeout(() => {
           setIsProcessing(false);
-          setShowUtrDialog(true);
-        }, 2000);
+          setShowPostPaymentPrompt(true);
+        }, 2500); // 2.5s to account for the 1s fallback delay
       } else if (method === "CASH") {
-        // If they choose 'Cash at Counter', the user said "it need to open the app and the customer need to pay to the vendor".
-        // This means even for "Cash", we open the generic UPI picker.
-        const upiId = (shop?.upiId || "balajier2006@okaxis").trim();
-        const shopName = encodeURIComponent(shop?.name || "Shop");
-        const amount = grandTotal.toFixed(2);
-        // if the ID looks malformed we provide a fallback alert so user can paste manually
-        const validateUpi = (u: string) => /^[\w.\-]{3,}@[a-zA-Z]+$/.test(u);
-        if (!validateUpi(upiId)) {
+        // If they choose 'Cash at Counter', still open the universal UPI picker and user confirms in app.
+        const upiId = (vendorSettings?.upiId || shop?.upiId || "").trim();
+        if (!upiId) {
+          setIsProcessing(false);
           window.alert(
-            "The vendor's UPI ID appears invalid, please verify before proceeding.",
+            "Merchant UPI ID is missing. Cannot proceed with cash/UPI intent.",
           );
+          return;
         }
-        const upiLink = `upi://pay?pa=${upiId}&pn=${shopName}&am=${amount}&cu=INR&tn=Order%20${generatedOrderId}`;
 
+        const shopName = encodeURIComponent(shop?.name || "Shop");
+        const rawShopName = shop?.name || "Shop";
+        const amount = grandTotal.toFixed(2);
+        const validateUpi = (u: string) =>
+          /^[a-zA-Z0-9._\-]{2,256}@[a-zA-Z0-9.\-]{2,64}$/.test(u);
+        if (!validateUpi(upiId)) {
+          setIsProcessing(false);
+          window.alert(
+            "Invalid UPI ID. Please check with merchant and try again.",
+          );
+          return;
+        }
+
+        const isPersonalId = isPersonalUPIId(upiId);
+        setIsPersonalUPI(isPersonalId);
+        const upiLink = generateUPILink(
+          upiId,
+          rawShopName,
+          amount,
+          generatedOrderId,
+          isPersonalId,
+        );
+        setUpiLink(upiLink);
         window.location.href = upiLink;
 
         setTimeout(() => {
           setIsProcessing(false);
-          setShowUtrDialog(true);
+          setShowPostPaymentPrompt(true);
         }, 1500);
       }
     } catch (error) {
@@ -661,25 +760,19 @@ function CheckoutPageContent() {
             </h2>
             <div className="grid grid-cols-1 gap-3">
               {/* Google Pay */}
-              <button
+              {/* <button
                 onClick={() => handlePaymentWithMethod("UPI_GPAY")}
                 disabled={isProcessing}
                 className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm overflow-hidden">
-                    <span
-                      className="text-xl font-bold"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #4285F4, #EA4335, #FBBC05, #34A853)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                      }}
-                    >
-                      G
-                    </span>
-                  </div>
+                  <Image className="w-10 h-10 rounded-xl ] flex items-center justify-center shadow-sm"
+      src="/gpay.png"        // Path relative to public folder
+      alt="Company Logo"
+      width={150}            // Required for remote/public images
+      height={50}           
+      priority               // Recommended for logos to load immediately
+    />
                   <span className="font-semibold text-[15px] text-gray-800">
                     Google Pay
                   </span>
@@ -699,15 +792,19 @@ function CheckoutPageContent() {
               </button>
 
               {/* PhonePe */}
-              <button
+              {/* <button
                 onClick={() => handlePaymentWithMethod("UPI_PHONEPE")}
                 disabled={isProcessing}
                 className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#5f259f] flex items-center justify-center shadow-sm">
-                    <span className="text-white font-bold text-sm">Pe</span>
-                  </div>
+                   <Image className="w-10 h-10 rounded-xl bg-[#5F259F] flex items-center justify-center shadow-sm"
+      src="/phonepe.png"        // Path relative to public folder
+      alt="Company Logo"
+      width={250}            // Required for remote/public images
+      height={50}           
+      priority               // Recommended for logos to load immediately
+    />
                   <span className="font-semibold text-[15px] text-gray-800">
                     PhonePe
                   </span>
@@ -724,20 +821,22 @@ function CheckoutPageContent() {
                     <div className="w-2.5 h-2.5 bg-white rounded-full" />
                   )}
                 </div>
-              </button>
+              </button> */}
 
               {/* Paytm */}
-              <button
+              {/* <button
                 onClick={() => handlePaymentWithMethod("UPI_PAYTM")}
                 disabled={isProcessing}
                 className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#00b9f1] flex items-center justify-center shadow-sm">
-                    <span className="text-white font-black text-[9px] tracking-tighter">
-                      Paytm
-                    </span>
-                  </div>
+                  <Image className="w-10 h-10 rounded-xl bg-[#00b9f1] flex items-center justify-center shadow-sm"
+      src="/paytm.png"        // Path relative to public folder
+      alt="Company Logo"
+      width={150}            // Required for remote/public images
+      height={50}           
+      priority               // Recommended for logos to load immediately
+    />
                   <span className="font-semibold text-[15px] text-gray-800">
                     Paytm
                   </span>
@@ -754,7 +853,8 @@ function CheckoutPageContent() {
                     <div className="w-2.5 h-2.5 bg-white rounded-full" />
                   )}
                 </div>
-              </button>
+              </button> 
+               */}
 
               {/* FamApp */}
               <button
@@ -763,11 +863,14 @@ function CheckoutPageContent() {
                 className="relative px-5 py-4 rounded-2xl border border-gray-100 bg-white flex items-center justify-between transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#000000] flex items-center justify-center shadow-sm">
-                    <span className="text-[#FFD100] font-black text-[12px] tracking-tight">
-                      Fam
-                    </span>
-                  </div>
+                <Image className="w-10 h-10 rounded-xl bg-[#00b9f1] flex items-center justify-center shadow-sm"
+      src="/famapp.png"        // Path relative to public folder
+      alt="Company Logo"
+      width={150}            // Required for remote/public images
+      height={50}           
+      priority               // Recommended for logos to load immediately
+    />
+
                   <span className="font-semibold text-[15px] text-gray-800">
                     FamApp
                   </span>
@@ -824,58 +927,37 @@ function CheckoutPageContent() {
         </div>
       </div>
 
-      {/* Payment Dialog - Shows UPI Link to Open */}
-      {showPaymentDialog && (
+      
+      {/* Post-Payment Prompt - After auto-opening UPI app */}
+      {showPostPaymentPrompt && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <ShieldCheck className="w-6 h-6 text-blue-500" />
-                  Open Payment App
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Click below to open your UPI app and complete the payment.
-                </p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                <ShieldCheck className="w-6 h-6 text-emerald-600" />
               </div>
-              <button
-                onClick={() => setShowPaymentDialog(false)}
-                className="bg-gray-50 hover:bg-gray-100 p-2 rounded-full text-gray-500 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Payment Status</h3>
+                <p className="text-xs text-gray-500">Did you complete the payment?</p>
+              </div>
             </div>
-
-            <div className="space-y-4">
-              <a
-                href={upiLink}
-                className="block w-full bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/25 text-center hover:bg-blue-600 transition-colors active:scale-95"
-              >
-                Open UPI App →
-              </a>
-
+            <div className="flex flex-col gap-3">
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(upiLink);
-                  alert("Payment link copied to clipboard!");
+                  setShowPostPaymentPrompt(false);
+                  setShowUtrDialog(true);
                 }}
-                className="w-full border-2 border-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                className="w-full bg-emerald-500 text-white font-bold py-3.5 rounded-xl text-[15px] hover:bg-emerald-600 transition-colors shadow-sm active:scale-[0.98]"
               >
-                Copy Payment Link
+                Yes, Verify Payment
               </button>
-
-              <p className="text-center text-xs text-gray-400 font-medium px-4">
-                After completing payment in your UPI app, click below to verify.
-              </p>
-
               <button
                 onClick={() => {
-                  setShowPaymentDialog(false);
-                  setTimeout(() => setShowUtrDialog(true), 300);
+                  setShowPostPaymentPrompt(false);
                 }}
-                className="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
+                className="w-full bg-gray-100 text-gray-700 font-bold py-3.5 rounded-xl text-[15px] hover:bg-gray-200 transition-colors active:scale-[0.98]"
               >
-                Payment Done, Verify UTR
+                No, Go Back
               </button>
             </div>
           </div>

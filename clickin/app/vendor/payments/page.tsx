@@ -36,6 +36,7 @@ export default function VendorPaymentsPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [isSaved, setIsSaved] = useState(false)
     const [upiError, setUpiError] = useState<string | null>(null)
+    const [famappUpiError, setFamappUpiError] = useState<string | null>(null)
 
     useEffect(() => {
         if (!shopId) return;
@@ -67,13 +68,22 @@ export default function VendorPaymentsPage() {
             return
         }
 
+        if (settings.famappUpiId && !validateUpi(settings.famappUpiId)) {
+            setFamappUpiError("Please enter a valid FamApp UPI ID")
+            return
+        }
+
         setIsSaving(true)
         setIsSaved(false)
         try {
             await updateSettings(shopId, settings)
             // Sync UPI ID with the shop document for real-time customer access
-            if (settings.upiId) {
-                await updateShop(shopId, { upiId: settings.upiId })
+            const shopUpdates: any = {}
+            if (settings.upiId !== undefined) shopUpdates.upiId = settings.upiId
+            if (settings.famappUpiId !== undefined) shopUpdates.famappUpiId = settings.famappUpiId
+            
+            if (Object.keys(shopUpdates).length > 0) {
+                await updateShop(shopId, shopUpdates)
             }
             setIsSaved(true)
             setTimeout(() => setIsSaved(false), 3000)
@@ -317,6 +327,19 @@ export default function VendorPaymentsPage() {
                                     <p className="text-[10px] text-gray-400 font-medium bg-gray-50 p-2.5 rounded-lg border border-gray-200/50 mt-2">
                                         ⚡ UPI is our fastest settlement method. Ensure this is a <span className="text-gray-900 font-bold underline">Merchant ID</span> to avoid bank limits.
                                     </p>
+                                </div>
+                                <div className="space-y-1.5 pt-4 border-t border-gray-100">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">FamApp UPI ID</label>
+                                    <Input 
+                                        value={settings.famappUpiId || ""} 
+                                        onChange={(e) => {
+                                            setSettings({...settings, famappUpiId: e.target.value})
+                                            setFamappUpiError(null)
+                                        }}
+                                        placeholder="famapp@upi"
+                                        className="h-12 text-sm font-bold border-gray-200 rounded-xl focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                    {famappUpiError && <p className="text-[10px] text-red-500 font-bold mt-1">{famappUpiError}</p>}
                                 </div>
                                 <Button 
                                     onClick={handleSaveSettings}

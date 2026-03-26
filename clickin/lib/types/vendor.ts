@@ -32,6 +32,7 @@ export interface VendorShop {
     workingDays?: string[];
     orderTypesSupported?: OrderType[];
     upiId?: string;
+    famappUpiId?: string;
     paymentInstructions?: string;
     allowStaffRequests?: boolean;
     maxStaffAllowed?: number;
@@ -147,6 +148,7 @@ export interface VendorSettings {
     taxPercentage: number;
     gstNumber: string;
     upiId: string;
+    famappUpiId?: string;
     bankAccountName: string;
     bankAccountNumber: string;
     bankIFSC: string;

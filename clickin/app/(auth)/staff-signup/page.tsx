@@ -90,14 +90,21 @@ export default function SignupPage() {
         setError("");
         setLoading(true);
         try {
+            localStorage.setItem("redirectAfterLogin", "/vendor/staff");
+            let result;
             if (provider === "google") {
-                await googleSignIn();
+                result = await googleSignIn();
             } else if (provider === "facebook") {
-                await facebookSignIn();
+                result = await facebookSignIn();
             } else if (provider === "apple") {
-                await appleSignIn();
+                result = await appleSignIn();
             }
-            setShowSuccess(true);
+            if (result) {
+                // Popup case: successful login
+                setShowSuccess(true);
+                setTimeout(() => router.push("/vendor/staff"), 1500);
+            }
+            // For redirect case, the page will reload and redirect automatically
         } catch (err: any) {
             setError(err.message || `Failed to sign in with ${provider}`);
         } finally {

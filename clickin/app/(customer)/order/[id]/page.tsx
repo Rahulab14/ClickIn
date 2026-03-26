@@ -75,17 +75,23 @@ export default function OrderStatusPage() {
     return (
         <div className="min-h-screen bg-gray-50 pb-24 font-sans tracking-tight selection:bg-emerald-100">
             {/* Header */}
-            <div className="bg-white/80 backdrop-blur-xl px-5 py-4 flex items-center justify-between sticky top-0 z-30 border-b border-gray-100 shadow-sm">
-                <div className="flex items-center gap-4">
+            <div className="bg-white/80 backdrop-blur-xl px-4 sm:px-5 md:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-30 border-b border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-wrap">
                     <button
                         onClick={() => router.push("/")}
-                        className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-2xl flex items-center justify-center transition-all active:scale-95 group hover:bg-gray-50"
+                        className="w-9 h-9 sm:w-10 sm:h-10 bg-white shadow-sm border border-gray-100 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all active:scale-95 group hover:bg-gray-50 shrink-0"
                     >
-                        <ArrowLeft className="h-5 w-5 text-gray-700 group-hover:-translate-x-0.5 transition-transform" />
+                        <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700 group-hover:-translate-x-0.5 transition-transform" />
                     </button>
-                    <div>
-                        <h1 className="font-black text-xl text-gray-900 leading-none">Order Status</h1>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Order #{orderId.slice(-6).toUpperCase()}</p>
+                    <div className="min-w-0">
+                        <h1 className="font-black text-base sm:text-lg md:text-xl text-gray-900 leading-none truncate">Order Status</h1>
+                        <p className="text-xs sm:text-sm text-gray-500 flex items-center gap-1 truncate">
+                            <Store className="w-3 h-3 shrink-0" />
+                            {shopName}
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 px-3 sm:px-4 md:px-6 py-0.5 sm:py-1 rounded-full border border-gray-100">
+                        <p className="text-[8px] sm:text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Order #{orderId.slice(-4).toUpperCase()}</p>
                     </div>
                 </div>
             </div>
@@ -134,6 +140,12 @@ export default function OrderStatusPage() {
                                             "Hope you enjoyed your meal!"}
                         </p>
 
+                        {/* Order ID Badge */}
+                        <div className="mt-4 inline-flex items-center gap-2 bg-gray-50 px-4 py-1.5 rounded-full border border-gray-100 relative z-10">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order ID - </span>
+                            <span className="font-mono font-black text-gray-900 tracking-wider text-xs uppercase">{orderId.slice(-4)}</span>
+                        </div>
+
                         {/* Status Timeline */}
                         <div className="mt-8 flex items-center justify-between max-w-[200px] mx-auto relative px-2">
                             <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-100 -translate-y-1/2 z-0" />
@@ -179,7 +191,10 @@ export default function OrderStatusPage() {
                         </div>
 
                         <div className="bg-gray-50 px-6 py-2 rounded-full border border-gray-100">
-                            <p className="font-mono font-black text-gray-900 tracking-[0.3em] text-sm uppercase">{orderId.slice(-8)}</p>
+                            
+                            
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Order ID - </span>
+                            <span className="font-mono font-black text-gray-900 tracking-[0.3em] text-sm uppercase">{` ${orderId.slice(-4)}`}</span>
                         </div>
                     </div>
                 )}

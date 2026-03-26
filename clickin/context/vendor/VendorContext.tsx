@@ -116,7 +116,7 @@ export const VendorProvider = ({ children }: { children: React.ReactNode }) => {
             const currentDay = now.toLocaleDateString("en-US", { weekday: "long" });
             const currentTime = now.getHours() * 60 + now.getMinutes();
 
-            const hoursToday = settings.operatingHours.find((h) => h.day === currentDay);
+            const hoursToday = settings.operatingHours?.find((h) => h.day === currentDay);
             
             if (!hoursToday || !hoursToday.isOpen) {
                 if (shop.isOnline) {
