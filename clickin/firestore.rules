@@ -56,7 +56,14 @@ service cloud.firestore {
       allow read: if true; // Public can read shops
       allow update, delete: if request.auth != null && (isAdmin() || resource.data.ownerId == request.auth.uid);
       
-      // Allow nested subcollections like menu, categories, staff
+      // Specific rule for menu items to allow stock updates by customers
+      match /menu/{itemId} {
+        allow read: if true;
+        allow update: if request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'available', 'updatedAt']);
+        allow create, delete: if request.auth != null && (isAdmin() || get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid);
+      }
+      
+      // Allow other nested subcollections like categories, staff
       match /{document=**} {
         allow read: if true;
         allow write: if request.auth != null && (isAdmin() || get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid);

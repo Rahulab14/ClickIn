@@ -107,6 +107,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         setUserRole(userSnap.data().role as UserRole);
                         setUserStatus((userSnap.data().status as UserStatus) || "active");
                     }
+
+                    // Redirect after successful login
+                    const redirectPath = localStorage.getItem("redirectAfterLogin");
+                    if (redirectPath) {
+                        localStorage.removeItem("redirectAfterLogin");
+                        window.location.assign(redirectPath);
+                    }
                 } catch (err) {
                     console.warn("Could not sync redirect user to Firestore", err);
                 }
@@ -302,17 +309,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAuthenticatingRef.current = true;
         try {
             const provider = new GoogleAuthProvider();
-            const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
             let result;
-            if (isMobile) {
-                await signInWithRedirect(auth, provider);
-                return; // Will reload page
-            } else {
+            try {
                 result = await signInWithPopup(auth, provider);
+            } catch (err: any) {
+                if (err.code === "auth/popup-blocked" || err.code === "auth/popup-closed-by-user") {
+                    await signInWithRedirect(auth, provider);
+                    return; // Will reload page
+                }
+                throw err;
             }
             
-            // Optimistically check/create user doc
+            // Handle user doc for popup
             try {
                 const userRef = doc(db, "users", result.user.uid);
                 const userSnap = await getDoc(userRef);
@@ -346,13 +355,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const facebookSignIn = async () => {
         try {
             const provider = new FacebookAuthProvider();
-            const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            if (isMobile) {
-                await signInWithRedirect(auth, provider);
-                return;
-            } else {
-                return await signInWithPopup(auth, provider);
+            let result;
+            try {
+                result = await signInWithPopup(auth, provider);
+            } catch (err: any) {
+                if (err.code === "auth/popup-blocked" || err.code === "auth/popup-closed-by-user") {
+                    await signInWithRedirect(auth, provider);
+                    return;
+                }
+                throw err;
             }
+            
+            // Handle user doc for popup
+            try {
+                const userRef = doc(db, "users", result.user.uid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, {
+                        uid: result.user.uid,
+                        email: result.user.email,
+                        fullName: result.user.displayName || "User",
+                        createdAt: new Date().toISOString(),
+                        photoURL: result.user.photoURL || "",
+                        role: "user",
+                        status: "active"
+                    });
+                    setUserRole("user");
+                    setUserStatus("active");
+                } else {
+                    setUserRole(userSnap.data().role as UserRole);
+                    setUserStatus((userSnap.data().status as UserStatus) || "active");
+                }
+            } catch (firestoreErr) {
+                console.warn("Could not sync user profile to Firestore:", firestoreErr);
+            }
+            return result;
         } catch (e: any) {
             throw new Error(getAuthErrorMessage(e));
         }
@@ -361,13 +398,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const appleSignIn = async () => {
         try {
             const provider = new OAuthProvider('apple.com');
-            const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            if (isMobile) {
-                await signInWithRedirect(auth, provider);
-                return;
-            } else {
-                return await signInWithPopup(auth, provider);
+            let result;
+            try {
+                result = await signInWithPopup(auth, provider);
+            } catch (err: any) {
+                if (err.code === "auth/popup-blocked" || err.code === "auth/popup-closed-by-user") {
+                    await signInWithRedirect(auth, provider);
+                    return;
+                }
+                throw err;
             }
+            
+            // Handle user doc for popup
+            try {
+                const userRef = doc(db, "users", result.user.uid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, {
+                        uid: result.user.uid,
+                        email: result.user.email,
+                        fullName: result.user.displayName || "User",
+                        createdAt: new Date().toISOString(),
+                        photoURL: result.user.photoURL || "",
+                        role: "user",
+                        status: "active"
+                    });
+                    setUserRole("user");
+                    setUserStatus("active");
+                } else {
+                    setUserRole(userSnap.data().role as UserRole);
+                    setUserStatus((userSnap.data().status as UserStatus) || "active");
+                }
+            } catch (firestoreErr) {
+                console.warn("Could not sync user profile to Firestore:", firestoreErr);
+            }
+            return result;
         } catch (e: any) {
             throw new Error(getAuthErrorMessage(e));
         }

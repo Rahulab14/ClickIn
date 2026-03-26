@@ -17,14 +17,14 @@ const SLIDES = [
     imageUrl:
       "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&q=80&w=400",
     icon: <Menu className="h-10 w-10 md:h-14 md:w-14 text-emerald-100" />,
-    badgeText: "Updated Daily",
+    badgeText: "Realtime Updates",
     badgeLabel: "Live Menu",
   },
   {
     id: 2,
     title: "Pay Online",
     subtitle: "UPI • Fast & Secure",
-    description: "Pay using GPay, PhonePe or Paytm",
+    description: "Pay using FamApp",
     gradient: "from-blue-900/95 via-blue-900/80 to-transparent",
     imageColor: "bg-blue-500",
     imageUrl:
