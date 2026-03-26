@@ -39,17 +39,17 @@ export default function CategoriesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white font-sans selection:bg-indigo-100">
+    <div className="min-h-screen bg-white dark:bg-gray-900 font-sans selection:bg-indigo-100">
       <div className="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto w-full">
         {/* Header */}
-        <div className="flex items-center gap-4 p-4 sticky top-0 bg-white z-10">
+        <div className="flex items-center gap-4 p-4 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <button
             onClick={() => router.back()}
-            className="p-1 -ml-1 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1 -ml-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
           >
-            <ArrowLeft className="w-6 h-6 text-gray-800" />
+            <ArrowLeft className="w-6 h-6 text-gray-800 dark:text-gray-200" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
             More Category
           </h1>
         </div>
@@ -63,11 +63,11 @@ export default function CategoriesPage() {
               className="flex flex-col items-center gap-3 cursor-pointer group"
             >
               {/* Icon Container */}
-              <div className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center text-[2.5rem] md:text-[3rem] transition-all duration-300 group-hover:scale-110 drop-shadow-sm filter bg-gray-50 rounded-2xl group-hover:bg-indigo-50 border border-transparent group-hover:border-indigo-100">
+              <div className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center text-[2.5rem] md:text-[3rem] transition-all duration-300 group-hover:scale-110 drop-shadow-sm filter bg-gray-50 dark:bg-gray-950 rounded-2xl group-hover:bg-indigo-50 border border-transparent group-hover:border-indigo-100">
                 {cat.icon}
               </div>
               {/* Label */}
-              <span className="text-[12px] md:text-[13px] font-bold text-gray-800 text-center leading-tight truncate px-1 w-full group-hover:text-indigo-600 transition-colors">
+              <span className="text-[12px] md:text-[13px] font-bold text-gray-800 dark:text-gray-200 text-center leading-tight truncate px-1 w-full group-hover:text-indigo-600 transition-colors">
                 {cat.name}
               </span>
             </Link>

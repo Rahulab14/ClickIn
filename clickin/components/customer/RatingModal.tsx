@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Star, CheckCircle2, X } from "lucide-react"
+import confetti from "canvas-confetti"
 import { cn } from "@/lib/utils"
 
 interface RatingModalProps {
@@ -24,9 +25,18 @@ export function RatingModal({ isOpen, onClose, onSubmit, shopName }: RatingModal
         try {
             await onSubmit(rating)
             setIsSuccess(true)
+            
+            // Trigger a premium confetti blast
+            confetti({
+                particleCount: 150,
+                spread: 80,
+                origin: { y: 0.6 },
+                colors: ['#10b981', '#34d399', '#fde68a', '#ffffff']
+            })
+
             setTimeout(() => {
                 onClose()
-            }, 2000)
+            }, 2500)
         } catch (error) {
             console.error("Rating submission failed:", error)
         } finally {

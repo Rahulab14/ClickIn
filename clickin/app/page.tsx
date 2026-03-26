@@ -8,13 +8,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "ClickIn - Self Billing Platform",
+  title: "Clickin - Smart Canteen Ordering Platform",
   description:
-    "Explore local restaurants and shops on ClickIn. Browse menus, place orders, and enjoy quick delivery of your favorite meals.",
+    "Clickin is a smart QR-based food ordering system for college canteens. Scan, order, pay and pickup without waiting.",
   openGraph: {
-    title: "Browse Restaurants and Order Food | ClickIn",
+    title: "Clickin - Smart Canteen Ordering Platform",
     description:
-      "Discover and order from your favorite local restaurants with ClickIn",
+      "Discover and order from your favorite local restaurants with Clickin",
     type: "website",
   },
 };
@@ -33,6 +33,7 @@ export default async function Home2Page() {
     <div className="min-h-screen bg-background font-sans relative pb-20 md:pb-10">
       <Home2Header />
       <main className="container max-w-7xl mx-auto md:space-y-8">
+        <h1 className="sr-only">Clickin - Smart Canteen Ordering Platform</h1>
         <HeroBanner />
         <CategoryGrid />
         <ShopListing shops={shops} />

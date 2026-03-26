@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Checkout",
   description:
-    "Complete your order on ClickIn. Enter delivery details and payment information to place your order.",
-  robots: {
-    index: false,
-    follow: false,
+    "Complete your order securely on Clickin. Finalize delivery, manage payment, and use our smart canteen ordering system.",
+  openGraph: {
+    title: "Checkout | Clickin",
+    description: "Complete your canteen order securely on Clickin.",
   },
 };
 

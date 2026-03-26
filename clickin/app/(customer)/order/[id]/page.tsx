@@ -61,7 +61,7 @@ export default function OrderStatusPage() {
     }, [orderId])
 
     if (loading) {
-        return <div className="min-h-screen bg-gray-50 flex items-center justify-center font-sans tracking-tight">Loading...</div>
+        return <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center font-sans tracking-tight">Loading...</div>
     }
 
     const currentStatus = order?.status || urlStatus;
@@ -73,25 +73,25 @@ export default function OrderStatusPage() {
     const isCancelled = currentStatus === "CANCELLED";
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-24 font-sans tracking-tight selection:bg-emerald-100">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24 font-sans tracking-tight selection:bg-emerald-100">
             {/* Header */}
-            <div className="bg-white/80 backdrop-blur-xl px-4 sm:px-5 md:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-30 border-b border-gray-100 shadow-sm">
+            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl px-4 sm:px-5 md:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-30 border-b border-gray-100 dark:border-gray-800 shadow-sm">
                 <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-wrap">
                     <button
                         onClick={() => router.push("/")}
-                        className="w-9 h-9 sm:w-10 sm:h-10 bg-white shadow-sm border border-gray-100 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all active:scale-95 group hover:bg-gray-50 shrink-0"
+                        className="w-9 h-9 sm:w-10 sm:h-10 bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all active:scale-95 group hover:bg-gray-50 dark:hover:bg-gray-800 shrink-0"
                     >
-                        <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700 group-hover:-translate-x-0.5 transition-transform" />
+                        <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700 dark:text-gray-300 group-hover:-translate-x-0.5 transition-transform" />
                     </button>
                     <div className="min-w-0">
-                        <h1 className="font-black text-base sm:text-lg md:text-xl text-gray-900 leading-none truncate">Order Status</h1>
-                        <p className="text-xs sm:text-sm text-gray-500 flex items-center gap-1 truncate">
+                        <h1 className="font-black text-base sm:text-lg md:text-xl text-gray-900 dark:text-gray-100 leading-none truncate">Order Status</h1>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
                             <Store className="w-3 h-3 shrink-0" />
                             {shopName}
                         </p>
                     </div>
-                    <div className="bg-gray-50 px-3 sm:px-4 md:px-6 py-0.5 sm:py-1 rounded-full border border-gray-100">
-                        <p className="text-[8px] sm:text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Order #{orderId.slice(-4).toUpperCase()}</p>
+                    <div className="bg-gray-50 dark:bg-gray-950 px-3 sm:px-4 md:px-6 py-0.5 sm:py-1 rounded-full border border-gray-100 dark:border-gray-800">
+                        <p className="text-[8px] sm:text-[9px] md:text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest whitespace-nowrap">Order #{orderId.slice(-4).toUpperCase()}</p>
                     </div>
                 </div>
             </div>
@@ -100,9 +100,9 @@ export default function OrderStatusPage() {
 
                 {/* Status Indicator */}
                 {!isCancelled ? (
-                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 text-center relative overflow-hidden group">
+                    <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 text-center relative overflow-hidden group">
                         {/* Decorative background circle */}
-                        <div className="absolute -top-12 -right-12 w-32 h-32 bg-gray-50 rounded-full group-hover:scale-110 transition-transform duration-700" />
+                        <div className="absolute -top-12 -right-12 w-32 h-32 bg-gray-50 dark:bg-gray-950 rounded-full group-hover:scale-110 transition-transform duration-700" />
 
                         {/* Status Icon */}
                         <div className="flex justify-center mb-6 relative z-10">
@@ -119,20 +119,20 @@ export default function OrderStatusPage() {
                                     <CheckCircle className="w-10 h-10 text-emerald-500" />
                                 </div>
                             ) : (
-                                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center border-4 border-gray-100">
-                                    <Check className="w-10 h-10 text-gray-400" />
+                                <div className="w-20 h-20 bg-gray-50 dark:bg-gray-950 rounded-full flex items-center justify-center border-4 border-gray-100 dark:border-gray-800">
+                                    <Check className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                                 </div>
                             )}
                         </div>
 
-                        <h2 className="text-2xl font-black text-gray-900 mb-2 relative z-10 tracking-tight">
+                        <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 mb-2 relative z-10 tracking-tight">
                             {!isPaymentConfirmed ? "Verifying Payment" :
                                 currentStatus === "PAID" ? "Payment Confirmed!" :
                                     currentStatus === "PREPARING" ? "Food is Preparing" :
                                         currentStatus === "READY" ? "Ready for Pickup!" :
                                             "Order Completed"}
                         </h2>
-                        <p className="text-sm font-medium text-gray-500 relative z-10 leading-relaxed max-w-[240px] mx-auto">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 relative z-10 leading-relaxed max-w-[240px] mx-auto">
                             {!isPaymentConfirmed ? "Waiting for confirmation from vendor..." :
                                 currentStatus === "PAID" ? "Please show the QR code below at the counter." :
                                     currentStatus === "PREPARING" ? "Your food is being prepared. Hang tight!" :
@@ -141,47 +141,47 @@ export default function OrderStatusPage() {
                         </p>
 
                         {/* Order ID Badge */}
-                        <div className="mt-4 inline-flex items-center gap-2 bg-gray-50 px-4 py-1.5 rounded-full border border-gray-100 relative z-10">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order ID - </span>
-                            <span className="font-mono font-black text-gray-900 tracking-wider text-xs uppercase">{orderId.slice(-4)}</span>
+                        <div className="mt-4 inline-flex items-center gap-2 bg-gray-50 dark:bg-gray-950 px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800 relative z-10">
+                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Order ID - </span>
+                            <span className="font-mono font-black text-gray-900 dark:text-gray-100 tracking-wider text-xs uppercase">{orderId.slice(-4)}</span>
                         </div>
 
                         {/* Status Timeline */}
                         <div className="mt-8 flex items-center justify-between max-w-[200px] mx-auto relative px-2">
-                            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-100 -translate-y-1/2 z-0" />
+                            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-100 dark:bg-gray-800 -translate-y-1/2 z-0" />
                             <div className={cn("w-3 h-3 rounded-full z-10 transition-colors duration-500", isPaymentConfirmed ? "bg-emerald-500" : "bg-gray-200")} />
                             <div className={cn("w-3 h-3 rounded-full z-10 transition-colors duration-500", ["PREPARING", "READY", "COMPLETED"].includes(currentStatus || "") ? "bg-blue-500" : "bg-gray-200")} />
                             <div className={cn("w-3 h-3 rounded-full z-10 transition-colors duration-500", ["READY", "COMPLETED"].includes(currentStatus || "") ? "bg-emerald-500" : "bg-gray-200")} />
                         </div>
-                        <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest max-w-[220px] mx-auto">
+                        <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest max-w-[220px] mx-auto">
                             <span>Paid</span>
                             <span>Cooking</span>
                             <span>Ready</span>
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-rose-100 text-center overflow-hidden">
+                    <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 shadow-sm border border-rose-100 text-center overflow-hidden">
                         <div className="flex justify-center mb-4">
                             <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center border-4 border-rose-100">
                                 <XCircle className="w-8 h-8 text-rose-500" />
                             </div>
                         </div>
-                        <h2 className="text-2xl font-black text-gray-900 mb-2">Order Cancelled</h2>
-                        <p className="text-sm font-medium text-gray-500">Your order has been cancelled.</p>
+                        <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 mb-2">Order Cancelled</h2>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Your order has been cancelled.</p>
                     </div>
                 )}
 
                 {/* QR Code Section - ONLY SHOW IF PAYMENT IS CONFIRMED */}
                 {isPaymentConfirmed && currentStatus !== "COMPLETED" && (
-                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-500" />
 
                         <div className="text-center mb-6">
-                            <h3 className="font-bold text-gray-900 text-lg tracking-tight">Order QR Code</h3>
-                            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Show this at the pickup counter</p>
+                            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg tracking-tight">Order QR Code</h3>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mt-1">Show this at the pickup counter</p>
                         </div>
 
-                        <div className="bg-white p-6 rounded-[2.5rem] border-2 border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] mb-6 transform hover:scale-[1.02] transition-transform duration-500">
+                        <div className="bg-white dark:bg-gray-900 p-6 rounded-[2.5rem] border-2 border-gray-50 dark:border-gray-800 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] mb-6 transform hover:scale-[1.02] transition-transform duration-500">
                             <QRCode
                                 value={orderId}
                                 size={180}
@@ -190,33 +190,33 @@ export default function OrderStatusPage() {
                             />
                         </div>
 
-                        <div className="bg-gray-50 px-6 py-2 rounded-full border border-gray-100">
+                        <div className="bg-gray-50 dark:bg-gray-950 px-6 py-2 rounded-full border border-gray-100 dark:border-gray-800">
                             
                             
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Order ID - </span>
-                            <span className="font-mono font-black text-gray-900 tracking-[0.3em] text-sm uppercase">{` ${orderId.slice(-4)}`}</span>
+                            <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Order ID - </span>
+                            <span className="font-mono font-black text-gray-900 dark:text-gray-100 tracking-[0.3em] text-sm uppercase">{` ${orderId.slice(-4)}`}</span>
                         </div>
                     </div>
                 )}
 
                 {/* Order Details (if real order exists) */}
                 {order && order.items && (
-                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
-                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Order Summary</h2>
+                    <div className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+                        <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">Order Summary</h2>
                         <div className="space-y-4">
                             {order.items.map((item: any, idx: number) => (
                                 <div key={idx} className="flex justify-between items-center">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-gray-500">
+                                        <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-950 border border-gray-100 dark:border-gray-800 flex items-center justify-center text-sm font-bold text-gray-500 dark:text-gray-400">
                                             {item.quantity}x
                                         </div>
-                                        <span className="font-bold text-gray-900 text-sm">{item.name}</span>
+                                        <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">{item.name}</span>
                                     </div>
-                                    <span className="font-bold text-gray-900">₹{item.price * item.quantity}</span>
+                                    <span className="font-bold text-gray-900 dark:text-gray-100">₹{item.price * item.quantity}</span>
                                 </div>
                             ))}
-                            <div className="pt-4 mt-4 border-t border-dashed border-gray-200 flex justify-between items-center">
-                                <span className="font-bold text-gray-500">Total Paid</span>
+                            <div className="pt-4 mt-4 border-t border-dashed border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                <span className="font-bold text-gray-500 dark:text-gray-400">Total Paid</span>
                                 <span className="font-black text-xl text-primary">₹{order.total}</span>
                             </div>
                         </div>

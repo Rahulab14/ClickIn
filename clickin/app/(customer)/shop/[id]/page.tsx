@@ -27,7 +27,7 @@ export default async function ShopMenuPage({ params }: { params: Promise<{ id: s
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-28 font-sans transition-all duration-300">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-28 font-sans transition-all duration-300">
             <ShopMenuClient shop={shop} menu={menu} />
         </div>
     )

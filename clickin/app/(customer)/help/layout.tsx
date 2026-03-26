@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Help & Support",
   description:
-    "Get help and support for your ClickIn orders. Find answers to common questions and contact customer support.",
-  robots: {
-    index: true,
-    follow: true,
+    "Get instant help and support for your Clickin orders. Find answers and contact our smart canteen ordering platform customer support.",
+  openGraph: {
+    title: "Help & Support | Clickin",
+    description: "Get instant help and support for your Clickin orders.",
   },
 };
 
