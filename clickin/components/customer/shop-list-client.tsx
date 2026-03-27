@@ -5,7 +5,7 @@ import { Search, ArrowLeft, Star, Clock, MapPin, X } from "lucide-react"
 import { ShopCard } from "@/components/shop/shop-card"
 import { useState, useMemo, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, Variants } from "framer-motion"
 import { VendorShop } from "@/lib/types/vendor"
 import { subscribeToAllShops } from "@/lib/vendor-service"
 
@@ -15,7 +15,7 @@ interface ShopListClientProps {
 
 const CATEGORIES = ["All", "South Indian", "Snacks", "Juices", "Biryani", "Meals", "Desserts"]
 
-const container = {
+const container: Variants = {
     hidden: { opacity: 0 },
     show: {
         opacity: 1,
@@ -25,7 +25,7 @@ const container = {
     }
 }
 
-const itemVariant = {
+const itemVariant: Variants = {
     hidden: { opacity: 0, y: 30 },
     show: { 
         opacity: 1, 

@@ -39,7 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth/AuthContext";
 import { useTheme } from "next-themes";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { subscribeToCustomerNotifications } from "@/lib/customer-service";
@@ -79,39 +79,46 @@ export function Home2Header() {
   }, [user]);
 
   useEffect(() => {
-    const fetchUserName = async () => {
-      if (!user) {
-        setUserName("");
-        setFullName("");
-        return;
-      }
-      // First try displayName from Firebase Auth (Google sign-in sets this)
-      if (user.displayName) {
-        setUserName(user.displayName.split(" ")[0]);
-        setFullName(user.displayName);
-        return;
-      }
-      // Fallback: fetch fullName from Firestore (email signup stores this)
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          const name = data.fullName || user.email?.split("@")[0] || "User";
+    if (!user) {
+      setUserName("");
+      setFullName("");
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "users", user.uid),
+      (docSnap) => {
+        if (docSnap.exists() && docSnap.data().fullName) {
+          const data = docSnap.data();
+          const name = data.fullName;
           setUserName(name.split(" ")[0]);
           setFullName(name);
+        } else if (user.displayName) {
+          setUserName(user.displayName.split(" ")[0]);
+          setFullName(user.displayName);
         } else {
           const name = user.email?.split("@")[0] || "User";
           setUserName(name.split(" ")[0]);
           setFullName(name);
         }
-      } catch {
-        const name = user.email?.split("@")[0] || "User";
-        setUserName(name.split(" ")[0]);
-        setFullName(name);
+      },
+      (error) => {
+        console.error("Error syncing user profile:", error);
+        if (user.displayName) {
+          setUserName(user.displayName.split(" ")[0]);
+          setFullName(user.displayName);
+        } else {
+          const name = user.email?.split("@")[0] || "User";
+          setUserName(name.split(" ")[0]);
+          setFullName(name);
+        }
       }
-    };
-    fetchUserName();
+    );
+
+    return () => unsubscribe();
   }, [user]);
+
+  const profileInitial = userName ? userName.charAt(0).toUpperCase() : (user ? (user.email ? user.email.charAt(0).toUpperCase() : "U") : "G");
 
   // Global Menu Sync
   useEffect(() => {
@@ -176,13 +183,23 @@ export function Home2Header() {
             {/* Profile Image (Triggers Sidebar) */}
             <Sheet>
               <SheetTrigger asChild>
-                <button className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-white shadow-lg ring-1 ring-gray-100/50 hover:ring-primary/40 transition-all group overflow-hidden">
+                <button className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-white shadow-lg ring-1 ring-gray-100/50 hover:ring-primary/40 transition-all group shrink-0">
                   <div className="absolute inset-0 bg-primary/10 group-hover:bg-primary/5 transition-colors" />
-                  <img
-                    src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=100&h=100"
-                    alt="Profile"
-                    className="object-cover w-full h-full relative z-10 transition-transform duration-500 group-hover:scale-110"
-                  />
+                  {mounted ? (
+                    user?.photoURL ? (
+                      <img
+                        src={user.photoURL}
+                        alt="Profile"
+                        className="object-cover w-full h-full relative z-10 transition-transform duration-500 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full relative z-10 flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-600 text-white font-black text-lg shadow-inner transition-transform duration-500 group-hover:scale-110">
+                        {profileInitial}
+                      </div>
+                    )
+                  ) : (
+                    <div className="w-full h-full relative z-10 bg-gray-100 animate-pulse" />
+                  )}
                 </button>
               </SheetTrigger>
               <SheetContent
@@ -208,15 +225,20 @@ export function Home2Header() {
                   {/* User Info */}
                   <div className="flex items-center justify-between px-6 py-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-100 shadow-sm relative">
-                        <img
-                          src={
-                            user?.photoURL ||
-                            "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=150&h=150"
-                          }
-                          alt="User"
-                          className="object-cover w-full h-full"
-                        />
+                      <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-100 shadow-sm relative shrink-0">
+                        {mounted && user?.photoURL ? (
+                          <img
+                            src={user.photoURL}
+                            alt="User"
+                            className="object-cover w-full h-full"
+                          />
+                        ) : mounted ? (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-400 to-emerald-600 text-white font-black text-2xl shadow-inner">
+                            {profileInitial}
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-gray-100 animate-pulse" />
+                        )}
                       </div>
                       <div className="flex flex-col">
                         <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-1">

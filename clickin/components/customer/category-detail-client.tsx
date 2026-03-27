@@ -2,29 +2,48 @@
 
 import { ArrowLeft, Star, Heart, SlidersHorizontal, ArrowUpDown, Tag, MapPin } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { VendorShop } from "@/lib/types/vendor"
+import { subscribeToAllShops } from "@/lib/vendor-service"
+import { SHOPS } from "@/lib/mock-data"
 
 interface CategoryDetailClientProps {
     slug: string;
-    shops: VendorShop[];
 }
 
-export function CategoryDetailClient({ slug, shops }: CategoryDetailClientProps) {
+export function CategoryDetailClient({ slug }: CategoryDetailClientProps) {
     const router = useRouter()
     const [favorites, setFavorites] = useState<Set<string>>(new Set())
     const [activeFilter, setActiveFilter] = useState<string | null>(null)
+    const [shops, setShops] = useState<VendorShop[]>([])
+    const [loading, setLoading] = useState(true)
 
-    const toggleFavorite = (shopId: string) => {
-        setFavorites((prev) => {
-            const next = new Set(prev)
-            if (next.has(shopId)) next.delete(shopId)
-            else next.add(shopId)
-            return next
+    useEffect(() => {
+        const lowerSlug = slug.toLowerCase()
+        const unsubscribe = subscribeToAllShops((allShops) => {
+            let matchingShops = allShops.filter(shop => {
+                const tagMatch = (shop.tags || []).some(t => t.toLowerCase().includes(lowerSlug) || lowerSlug.includes(t.toLowerCase()))
+                const cuisineMatch = (shop.cuisineType ? (typeof shop.cuisineType === 'string' ? [shop.cuisineType] : shop.cuisineType) : []).some(c => c.toLowerCase().includes(lowerSlug) || lowerSlug.includes(c.toLowerCase()))
+                return tagMatch || cuisineMatch
+            })
+
+            // Fallback to mock data if no real shops match
+            if (matchingShops.length === 0) {
+                const mockMatches = SHOPS.filter(shop =>
+                    shop.tags.some(t => t.toLowerCase().includes(lowerSlug) || lowerSlug.includes(t.toLowerCase())) ||
+                    shop.menu.some(item => item.category.toLowerCase().includes(lowerSlug) || lowerSlug.includes(item.category.toLowerCase()))
+                ) as any[]
+                matchingShops = mockMatches
+            }
+
+            setShops(matchingShops)
+            setLoading(false)
         })
-    }
+
+        return () => unsubscribe()
+    }, [slug])
 
     const filters = ["Filter", "Sort", "Promo", "Self Pick-Up"]
 
@@ -66,7 +85,12 @@ export function CategoryDetailClient({ slug, shops }: CategoryDetailClientProps)
 
                 {/* Shop Listings */}
                 <div className="px-4 pb-24 space-y-4 mt-2">
-                    {shops.length === 0 ? (
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                            <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                            <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Scanning Shops</p>
+                        </div>
+                    ) : shops.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
                             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
                                 <span className="text-4xl">🔍</span>
@@ -142,23 +166,27 @@ export function CategoryDetailClient({ slug, shops }: CategoryDetailClientProps)
                                         </div>
                                     </div>
 
-                                    {/* Favorite */}
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            toggleFavorite(shop.id)
-                                        }}
-                                        className="mt-2 p-1 rounded-full hover:bg-gray-50 transition-colors"
-                                    >
-                                        <Heart
-                                            className={cn(
-                                                "w-5 h-5 transition-colors",
-                                                favorites.has(shop.id)
-                                                    ? "fill-rose-500 text-rose-500"
-                                                    : "text-gray-300 hover:text-rose-300"
-                                            )}
-                                        />
-                                    </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setFavorites((prev) => {
+                                                    const next = new Set(prev)
+                                                    if (next.has(shop.id)) next.delete(shop.id)
+                                                    else next.add(shop.id)
+                                                    return next
+                                                })
+                                            }}
+                                            className="mt-2 p-1 rounded-full hover:bg-gray-50 transition-colors"
+                                        >
+                                            <Heart
+                                                className={cn(
+                                                    "w-5 h-5 transition-colors",
+                                                    favorites.has(shop.id)
+                                                        ? "fill-rose-500 text-rose-500"
+                                                        : "text-gray-300 hover:text-rose-300"
+                                                )}
+                                            />
+                                        </button>
                                 </div>
                             )
                         })
