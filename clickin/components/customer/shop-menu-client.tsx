@@ -47,6 +47,25 @@ export function ShopMenuClient({ shop: initialShop, menu: initialMenu }: ShopMen
         }
     }, [shopId])
 
+    // Hardware Back Button Hijack for QR Scans (Android OS / Google Lens)
+    useEffect(() => {
+        // If the user arrived here directly (no internal referral), intercept the back button
+        const isDirectVisit = !document.referrer.includes(window.location.host)
+        
+        if (isDirectVisit) {
+            // Push a duplicate state so the hardware back button doesn't close the browser
+            window.history.pushState(null, "", window.location.href)
+            
+            const handleHardwareBack = () => {
+                // When they press the Android Native Back Button, route to home instead of Exiting Android Chrome
+                router.push("/")
+            }
+            
+            window.addEventListener("popstate", handleHardwareBack)
+            return () => window.removeEventListener("popstate", handleHardwareBack)
+        }
+    }, [router])
+
     // Normalize shop fields for UI
     const shopUI = {
         id: shop.id,
@@ -157,7 +176,24 @@ export function ShopMenuClient({ shop: initialShop, menu: initialMenu }: ShopMen
                 {/* Navbar */}
                 <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center z-20">
                     <button
-                        onClick={() => router.back()}
+                        onClick={() => {
+                            const referrer = document.referrer
+                            const isExternal = !referrer || !referrer.includes(window.location.host)
+                            const currentPath = window.location.pathname
+
+                            if (isExternal) {
+                                router.replace("/")
+                                return
+                            }
+
+                            router.back()
+
+                            setTimeout(() => {
+                                if (window.location.pathname === currentPath) {
+                                    router.replace("/")
+                                }
+                            }, 150)
+                        }}
                         className="bg-white/10 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white hover:bg-white/30 transition-all hover:scale-110 active:scale-95 shadow-xl"
                     >
                         <ArrowLeft className="h-5 w-5 md:h-6 md:w-6" />
