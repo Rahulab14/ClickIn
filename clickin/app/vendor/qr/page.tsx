@@ -195,15 +195,6 @@ export default function VendorQRGeneratorPage() {
 
 
 
-
-
-
-
-
-
-
-
-
                             <div className="mt-4 pt-1 border-t border-gray-100 text-center">
                                 <p className="text-[10px] text-gray-400">Powered by <span className="font-bold text-gray-600">ClickIn</span></p>
                             </div>
