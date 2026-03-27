@@ -14,13 +14,13 @@ import {
     ShieldCheck,
     Bell,
     ChevronRight,
-    Search
+    Search,
+    MonitorPlay
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    const { user, userRole, loading, logout } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const [scrolled, setScrolled] = useState(false);
@@ -31,29 +31,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    useEffect(() => {
-        if (!loading) {
-            if (!user || userRole !== "admin") {
-                router.replace("/admin-login");
-            }
-        }
-    }, [user, userRole, loading, router]);
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-                <div className="relative flex items-center justify-center">
-                    <div className="h-16 w-16 border-4 border-zinc-100 border-t-emerald-500 rounded-full animate-spin" />
-                    <ShieldCheck className="absolute h-6 w-6 text-emerald-500" />
-                </div>
-            </div>
-        );
-    }
-
-    if (!user || userRole !== "admin") return null;
-
     const navigation = [
         { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+        { name: "Live Showcase", href: "/admin/showcase", icon: MonitorPlay },
         { name: "Vendors", href: "/admin/vendors", icon: Store },
         { name: "Users", href: "/admin/users", icon: Users },
         { name: "Reports", href: "/admin/reports", icon: FileText },
@@ -112,7 +92,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </div>
                     </div>
                     <button
-                        onClick={() => logout()}
+                        onClick={async () => {
+                            // Import action natively inside the handler to prevent component top-level static bindings
+                            const { logoutAdminSession } = await import("@/lib/actions/admin-auth");
+                            await logoutAdminSession();
+                            window.location.href = "/admin-login";
+                        }}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-rose-500 hover:bg-rose-50 transition-all active:scale-95"
                     >
                         <LogOut className="w-5 h-5" />

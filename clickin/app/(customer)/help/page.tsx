@@ -210,9 +210,14 @@ export default function HelpCenterPage() {
                     <p className="text-gray-500 dark:text-gray-400 text-sm max-w-[250px] font-medium leading-relaxed">
                         We're here to help! Get in touch with us via email or phone for any assistance.
                     </p>
-                    <button className="mt-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all w-full max-w-xs">
-                        Email Support
-                    </button>
+                    
+                        <div className="bg-gradient-to-br from-green-900 to-green-800 text-white p-5 md:p-8 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 shadow-xl relative overflow-hidden ">
+                            <div className="absolute top-[-20px] right-[-20px] text-8xl opacity-10">📧</div>
+                            <p className="font-extrabold text-base md:text-xl relative z-10 text-center md:text-left">Contact us </p>
+                            <a href="mailto:support@clickin.app" className="relative z-10 bg-white text-gray-900 font-extrabold px-6 md:px-8 py-3 md:py-4 rounded-xl shadow-[0_0_20px_rgb(255,255,255,0.3)] hover:scale-105 transition-transform text-sm md:text-base whitespace-nowrap">
+                                clickinsupport@gmail.com
+                            </a>
+                        </div>
                 </div>
             )}
 

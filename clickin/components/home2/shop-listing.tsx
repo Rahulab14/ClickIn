@@ -45,7 +45,6 @@ export function ShopListing({ shops: initialShops = [] }: ShopListingProps) {
                         image: item.image || item.logo || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800",
                         rating: item.rating || 0,
                         tags: item.tags || item.cuisineType || ["Food"],
-                        deliveryTime: item.deliveryTime || `${item.estimatedWaitTime || 20} mins`,
                         isOnline: item.isOnline !== undefined ? item.isOnline : true, // Default to true for mock data
                     };
 
@@ -97,9 +96,7 @@ export function ShopListing({ shops: initialShops = [] }: ShopListingProps) {
 
                                     <div className="absolute bottom-3 left-3 right-3 text-white z-20">
                                         <div className="flex items-center gap-3 text-[10px] font-medium opacity-90">
-                                            <span className="bg-black/30 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                <Clock className="w-3 h-3" /> {shop.deliveryTime}
-                                            </span>
+                                            {/* Clock/delivery time removed */}
                                         </div>
                                     </div>
                                 </div>
@@ -112,8 +109,6 @@ export function ShopListing({ shops: initialShops = [] }: ShopListingProps) {
                                     <div className="flex items-center gap-1 text-gray-500 text-xs font-medium mb-3">
                                         <MapPin className="h-3 w-3" />
                                         <span className="truncate max-w-[150px]">{shop.location}</span>
-                                        <span className="mx-1">•</span>
-                                        <span>{shop.deliveryTime}</span>
                                     </div>
 
                                     {/* Tags */}

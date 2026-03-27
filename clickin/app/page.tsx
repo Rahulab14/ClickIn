@@ -37,30 +37,7 @@ export default async function Home2Page() {
         <HeroBanner />
         <CategoryGrid />
         <ShopListing shops={shops} />
-        <div className="flex justify-center py-8">
-          <Link
-            href="/vendor-login"
-            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-          >
-            Vendor Dashboard
-          </Link>
-        </div>
-        <div className="flex justify-center py-8">
-          <Link
-            href="/staff-login"
-            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-          >
-            Staff Login
-          </Link>
-        </div>
-        <div className="flex justify-center py-8">
-          <Link
-            href="/admin-login"
-            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-          >
-            Admin Dashboard
-          </Link>
-        </div>
+        
       </main>
       <Home2BottomNav />
     </div>

@@ -10,7 +10,6 @@ interface ShopCardProps {
     name: string
     description: string // Maps to cuisine/location
     rating: number
-    deliveryTime: string
     priceRange?: string
     image: string
     imageColor: string
@@ -23,7 +22,6 @@ export function ShopCard({
     name,
     description,
     rating,
-    deliveryTime,
     priceRange = "1.2 km",
     image,
     imageColor,
@@ -37,9 +35,17 @@ export function ShopCard({
         <Link href={`/shop/${id}`} className="group cursor-pointer block">
             {/* Image / Banner Area */}
             <div className={cn("relative h-64 md:h-56 lg:h-48 xl:h-56 rounded-[2rem] overflow-hidden shadow-sm mb-4 bg-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1", imageColor)}>
-                {/* Placeholder Image Content */}
-                <div className="absolute inset-0 flex items-center justify-center text-9xl transition-transform duration-500 group-hover:scale-110">
-                    {image}
+                {/* Real Image Content */}
+                <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-105">
+                    <img 
+                        src={image} 
+                        alt={name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            // Fallback if image fails to load
+                            e.currentTarget.src = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800";
+                        }}
+                    />
                 </div>
 
                 {/* Overlay Gradient */}
@@ -71,11 +77,7 @@ export function ShopCard({
                     </div>
                 )}
 
-                {/* Time Badge */}
-                <div className="absolute bottom-4 right-4 bg-white/95 text-black text-xs font-bold px-2 py-1 rounded flex items-center gap-1 shadow-sm backdrop-blur-sm">
-                    <Bike className="h-3.5 w-3.5" />
-                    {deliveryTime}
-                </div>
+                {/* Disclaimer/Distance badge placeholder removed */}
             </div>
 
             {/* Content */}

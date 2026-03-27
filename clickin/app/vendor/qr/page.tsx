@@ -185,20 +185,13 @@ export default function VendorQRGeneratorPage() {
                         </div>
 
                         {/* Bottom Logos */}
-                        <div className="p-2 pt-1 w-full">
-                            <div className="flex flex-col items-center justify-center gap-0 opacity-90 transition-all">
-                                {/* Top Row: BHIM | UPI */}
-                                <div className="flex justify-center w-full">
-                                    <img src="/upi.png" alt="BHIM UPI" className="h-20 object-contain" />
-                                </div>
-                                {/* Bottom Row: Other payment methods */}
-                                <div className="flex items-center justify-center gap-4 flex-wrap print:gap-8">
-                                    <img src="/payment-app.png" alt="Paytm" className="h-6.5 object-contain print:h-6" />
-                                    
-                                </div>
+                        <div className="p-2 pt-2 w-full">
+                            <div className="flex flex-row items-center justify-center gap-6 sm:gap-8 md:gap-10 opacity-90 transition-all py-2">
+                                <img src="/upi.png" alt="BHIM UPI" className="h-19 sm:h-10 print:h-10 object-contain" />
+                                <img src="/Famapp1.png" alt="Famapp" className="h-10 sm:h-10 print:h-10 object-contain" />
                             </div>
 
-                            <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+                            <div className="mt-4 pt-1 border-t border-gray-100 text-center">
                                 <p className="text-[10px] text-gray-400">Powered by <span className="font-bold text-gray-600">ClickIn</span></p>
                             </div>
                         </div>
