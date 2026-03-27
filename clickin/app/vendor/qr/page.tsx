@@ -69,7 +69,6 @@ export default function VendorQRGeneratorPage() {
                 pixelRatio: 3,
                 quality: 1,
                 backgroundColor: "#ffffff",
-                useCORS: true,
                 cacheBust: true,
                 style: {
                     transform: 'none',
@@ -193,15 +192,6 @@ export default function VendorQRGeneratorPage() {
                                 <img src="/upi.png" alt="BHIM UPI" className="h-19 sm:h-10 print:h-10 object-contain" />
                                 <img src="/famapp.png" alt="Famapp" className="h-10 sm:h-10 print:h-10 object-contain" />
                             </div>
-
-
-
-
-
-
-
-
-
 
 
 
