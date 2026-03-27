@@ -67,7 +67,10 @@ export default function VendorQRGeneratorPage() {
 
             const dataUrl = await toPng(element, {
                 pixelRatio: 3,
+                quality: 1,
                 backgroundColor: "#ffffff",
+                useCORS: true,
+                cacheBust: true,
                 style: {
                     transform: 'none',
                     margin: '0'
@@ -79,9 +82,9 @@ export default function VendorQRGeneratorPage() {
             link.download = `${shopName || "Clickin"}-QR-Standee.png`
             link.href = dataUrl
             link.click()
-        } catch (err) {
+        } catch (err: any) {
             console.error("Image download error:", err)
-            alert("Failed to download image.")
+            alert(`Failed to download image: ${err?.message || "Unknown error"}`)
         } finally {
             setIsGenerating(false)
         }
@@ -188,7 +191,7 @@ export default function VendorQRGeneratorPage() {
                         <div className="p-2 pt-2 w-full">
                             <div className="flex flex-row items-center justify-center gap-6 sm:gap-8 md:gap-10 opacity-90 transition-all py-2">
                                 <img src="/upi.png" alt="BHIM UPI" className="h-19 sm:h-10 print:h-10 object-contain" />
-                                <img src="/Famapp1.png" alt="Famapp" className="h-10 sm:h-10 print:h-10 object-contain" />
+                                <img src="/famapp.png" alt="Famapp" className="h-10 sm:h-10 print:h-10 object-contain" />
                             </div>
 
                             <div className="mt-4 pt-1 border-t border-gray-100 text-center">
