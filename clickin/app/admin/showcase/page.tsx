@@ -13,6 +13,7 @@ import {
     updateDoc,
     orderBy
 } from "firebase/firestore";
+import { subscribeToAllShops } from "@/lib/vendor-service";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/Button";
@@ -31,10 +32,12 @@ import {
 import { VendorMenuItem } from "@/lib/types/vendor";
 
 type ActiveShop = {
-    id: string; // the vendor/shop uid
+    id: string; // the shop uid
+    ownerId: string; // the vendor uid
     shopName: string;
     description: string;
     verified: boolean;
+    isOnline: boolean;
 };
 
 export default function AdminShowcasePage() {
@@ -44,15 +47,16 @@ export default function AdminShowcasePage() {
     const [purgingId, setPurgingId] = useState<string | null>(null);
     const [purgeStatus, setPurgeStatus] = useState<string>("");
 
-    // 1. Live stream all active vendors
+    // 1. Live stream all active vendors via global shops query
     useEffect(() => {
-        const q = query(collection(db, "vendors"), where("isApproved", "==", true));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(d => ({
-                id: d.id,
-                shopName: d.data().shopName || "Unnamed Store",
-                description: d.data().description || "No description provided.",
-                verified: d.data().verified || false,
+        const unsubscribe = subscribeToAllShops((updatedShops) => {
+            const data: ActiveShop[] = updatedShops.map(s => ({
+                id: s.id,
+                ownerId: s.ownerId || s.id, // Fallback if ownerId is missing
+                shopName: s.name || "Unnamed Store",
+                description: s.location || "No location provided.",
+                verified: true,
+                isOnline: s.isOnline ?? false,
             }));
             setShops(data);
             setLoading(false);
@@ -61,65 +65,26 @@ export default function AdminShowcasePage() {
     }, []);
 
     // 2. Cascade Destructor Function
-    const handleDeepPurge = async (shopId: string, shopName: string) => {
+    const handleDeepPurge = async (shopId: string, shopName: string, ownerId: string) => {
         const confirmDelete = window.confirm(`⚠️ FINAL WARNING\n\nYou are about to permanently remove "${shopName}" and all related data.\n\nThis will delete:\n• All menu items\n• All staff access\n• The vendor profile\n\nThis action CANNOT be undone. Continue?`);
         if (!confirmDelete) return;
 
         setPurgingId(shopId);
-        setPurgeStatus("Initializing Lockdown...");
-        console.log(`[DEEP PURGE] Initiating teardown for Vendor: ${shopId}`);
+        setPurgeStatus("Transmitting Purge Protocol...");
+        console.log(`[DEEP PURGE] Initiating teardown for Shop: ${shopId}, Owner: ${ownerId}`);
 
         try {
-            // A. Destroy Menu Subcollection
-            setPurgeStatus("Wiping Menu Inventory...");
-            const menuSnap = await getDocs(collection(db, "shops", shopId, "menu"));
-            for (const item of menuSnap.docs) {
-                await deleteDoc(item.ref);
+            setPurgeStatus("Executing Backend Cascade Delete...");
+            const { executeDeepPurge } = await import("@/lib/actions/admin-purge");
+            const result = await executeDeepPurge(shopId, ownerId);
+
+            if (result.success) {
+                setPurgeStatus("PURGE COMPLETE");
+                setTimeout(() => {
+                    setPurgingId(null);
+                    setPurgeStatus("");
+                }, 2000);
             }
-
-            // B. Destroy Staff Subcollection inside the shop
-            setPurgeStatus("Evicting Platform Staff...");
-            const staffSnap = await getDocs(collection(db, "shops", shopId, "staff"));
-            for (const st of staffSnap.docs) {
-                const uid = st.data().uid;
-                if (uid) {
-                    try { await updateDoc(doc(db, "users", uid), { status: "deleted", role: "none" }); } catch {}
-                }
-                await deleteDoc(st.ref);
-            }
-
-            // C. Remove Global Staff records linked to this shop
-            setPurgeStatus("Cleaning Global Registry...");
-            const gStaffSnap = await getDocs(query(collection(db, "staff"), where("shopId", "==", shopId)));
-            for (const gSt of gStaffSnap.docs) {
-                await deleteDoc(gSt.ref);
-            }
-
-            // D. Delete the Vendor profile
-            setPurgeStatus("Destroying Vendor Profile...");
-            await deleteDoc(doc(db, "vendors", shopId));
-
-            // E. Delete associated Shop documents (Query by ownerId since docs use auto-ids)
-            setPurgeStatus("Purging Shop Documents...");
-            const shopsQuery = query(collection(db, "shops"), where("ownerId", "==", shopId));
-            const shopsSnap = await getDocs(shopsQuery);
-            for (const sDoc of shopsSnap.docs) {
-                await deleteDoc(sDoc.ref);
-            }
-
-            // F. Legacy delete by ID just in case
-            await deleteDoc(doc(db, "shops", shopId)).catch(() => {});
-
-            // G. Disconnect the owner's user role
-            setPurgeStatus("Revoking Privileges...");
-            try { await updateDoc(doc(db, "users", shopId), { status: "deleted", role: "none" }); } catch (e) {}
-
-            setPurgeStatus("PURGE COMPLETE");
-            setTimeout(() => {
-                setPurgingId(null);
-                setPurgeStatus("");
-            }, 2000);
-
         } catch (error: any) {
             console.error("[DEEP PURGE] FAILURE:", error);
             setPurgeStatus(`ERROR: ${error.message || "Partial failure"}`);
@@ -199,9 +164,20 @@ export default function AdminShowcasePage() {
                                                     <h2 className="text-3xl font-black tracking-tighter text-gray-900 uppercase leading-none mb-3">
                                                         {shop.shopName}
                                                     </h2>
-                                                    <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 font-black uppercase text-[10px] tracking-widest py-1.5 px-3">
-                                                        AUTHORIZED NODE
-                                                    </Badge>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 font-black uppercase text-[10px] tracking-widest py-1.5 px-3">
+                                                            AUTHORIZED NODE
+                                                        </Badge>
+                                                        {shop.isOnline ? (
+                                                            <Badge className="bg-blue-50 text-blue-600 border-blue-100 font-black uppercase text-[10px] tracking-widest py-1.5 px-3 flex items-center gap-1.5">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> LIVE
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge className="bg-gray-100 text-gray-500 border-gray-200 font-black uppercase text-[10px] tracking-widest py-1.5 px-3">
+                                                                OFFLINE
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -210,7 +186,7 @@ export default function AdminShowcasePage() {
                                             </p>
 
                                             <Button
-                                                onClick={() => handleDeepPurge(shop.id, shop.shopName)}
+                                                onClick={() => handleDeepPurge(shop.id, shop.shopName, shop.ownerId)}
                                                 disabled={purgingId === shop.id}
                                                 variant="destructive"
                                                 className="w-full h-14 rounded-2xl bg-red-50 hover:bg-red-500 hover:text-white text-red-600 font-black tracking-widest text-[11px] uppercase transition-all shadow-none hover:shadow-xl hover:shadow-red-500/20 group/btn"
@@ -235,9 +211,6 @@ export default function AdminShowcasePage() {
                                                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Syncing Menu</span>
                                             </div>
-                                            <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
-                                                <Package className="w-4 h-4" /> Live Catalog Stream
-                                            </h4>
                                             
                                             <MenuStreamer shopId={shop.id} />
                                         </div>
@@ -256,6 +229,7 @@ export default function AdminShowcasePage() {
 function MenuStreamer({ shopId }: { shopId: string }) {
     const [menu, setMenu] = useState<VendorMenuItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showAll, setShowAll] = useState(false);
 
     useEffect(() => {
         const q = query(collection(db, "shops", shopId, "menu"), orderBy("name", "asc"));
@@ -280,24 +254,44 @@ function MenuStreamer({ shopId }: { shopId: string }) {
         );
     }
 
+    const liveCount = menu.filter((i) => i.available !== false).length;
+    const displayedMenu = showAll ? menu : menu.slice(0, 2);
+
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-            {menu.map((item) => (
-                <div key={item.id} className="bg-white p-4 rounded-2xl border border-gray-100 hover:border-blue-200 transition-colors shadow-sm group">
-                    <div className="w-full aspect-square bg-gray-50 rounded-xl mb-4 flex items-center justify-center text-4xl group-hover:scale-105 transition-transform">
-                        {item.image || "📦"}
+        <div className="space-y-4">
+            <h4 className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                    <Package className="w-4 h-4" /> {liveCount} Live Items / {menu.length} Total
+                </span>
+                {menu.length > 2 && (
+                    <button
+                        onClick={() => setShowAll(!showAll)}
+                        className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                    >
+                        {showAll ? "View Less" : "View More"}
+                    </button>
+                )}
+            </h4>
+            <div className="grid grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                {displayedMenu.map((item) => (
+                    <div key={item.id} className="bg-white p-3 rounded-2xl border border-gray-100 hover:border-blue-200 transition-colors shadow-sm flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl shrink-0">
+                            {item.image || "📦"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h5 className="font-bold text-gray-800 text-sm truncate" title={item.name}>{item.name}</h5>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs font-black text-emerald-600">₹{item.price}</span>
+                                {item.available !== false ? (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-green-50 text-green-600 rounded uppercase">Live</span>
+                                ) : (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-red-50 text-red-600 rounded uppercase">Out</span>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <h5 className="font-bold text-gray-800 text-sm truncate" title={item.name}>{item.name}</h5>
-                    <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs font-black text-blue-600">₹{item.price}</span>
-                        {item.available !== false ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-green-50 text-green-600 rounded">LIVE</span>
-                        ) : (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-red-50 text-red-600 rounded">OUT</span>
-                        )}
-                    </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 }

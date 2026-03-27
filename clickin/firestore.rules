@@ -8,6 +8,11 @@ service cloud.firestore {
       return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
+    // Grant FULL access to all database collections for Admins
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
     // Users Collection
     match /users/{uid} {
       // Users can read/write their own profile, Admins can read/write everything
@@ -69,8 +74,17 @@ service cloud.firestore {
       // Specific rule for menu items
       match /menu/{itemId} {
         allow read: if true;
-        allow update: if request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'available', 'updatedAt']);
-        allow create, delete: if request.auth != null && (isAdmin() || get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid);
+        allow update: if request.auth != null && (
+          (exists(/databases/$(database)/documents/shops/$(shopId)) && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid) || 
+          isAdmin() ||
+          // If staff, only allow stock/availability updates
+          (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.shopId == shopId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'available', 'updatedAt']))
+        );
+        allow create, delete: if request.auth != null && (
+          isAdmin() || 
+          (exists(/databases/$(database)/documents/shops/$(shopId)) && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid) ||
+          (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.shopId == shopId)
+        );
       }
       
       // Staff subcollection inside a shop
