@@ -69,7 +69,6 @@ export default function VendorQRGeneratorPage() {
                 pixelRatio: 3,
                 quality: 1,
                 backgroundColor: "#ffffff",
-                useCORS: true,
                 cacheBust: true,
                 style: {
                     transform: 'none',
