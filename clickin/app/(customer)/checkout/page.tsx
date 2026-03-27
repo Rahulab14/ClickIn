@@ -850,7 +850,7 @@ function CheckoutPageContent() {
               >
                 <div className="flex items-center gap-4">
                 <Image className="w-10 h-10 rounded-xl bg-[#00b9f1] flex items-center justify-center shadow-sm"
-      src="/famapp.png"        // Path relative to public folder
+      src="/famapplogo.png"        // Path relative to public folder
       alt="Company Logo"
       width={150}            // Required for remote/public images
       height={50}           

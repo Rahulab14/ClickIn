@@ -85,9 +85,26 @@ export function ShopListClient({ initialShops }: ShopListClientProps) {
                     {/* Top Bar */}
                     <div className="flex items-center justify-between gap-4 mb-6">
                         <div className="flex items-center gap-3">
-                            <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-700 transition-colors active:scale-95">
+                            <button onClick={() => {
+                                const referrer = document.referrer
+                                const isExternal = !referrer || !referrer.includes(window.location.host)
+                                const currentPath = window.location.pathname
+
+                                if (isExternal) {
+                                    window.location.replace("/")
+                                    return
+                                }
+
+                                window.history.back()
+
+                                setTimeout(() => {
+                                    if (window.location.pathname === currentPath) {
+                                        window.location.replace("/")
+                                    }
+                                }, 150)
+                            }} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-700 transition-colors active:scale-95">
                                 <ArrowLeft className="h-6 w-6" />
-                            </Link>
+                            </button>
                             <div>
                                 <motion.h1
                                     initial={{ opacity: 0, x: -10 }}
