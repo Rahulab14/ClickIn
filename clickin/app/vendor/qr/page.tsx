@@ -194,6 +194,8 @@ export default function VendorQRGeneratorPage() {
                                 <img src="/famapp.png" alt="Famapp" className="h-10 sm:h-10 print:h-10 object-contain" />
                             </div>
 
+
+
                             <div className="mt-4 pt-1 border-t border-gray-100 text-center">
                                 <p className="text-[10px] text-gray-400">Powered by <span className="font-bold text-gray-600">ClickIn</span></p>
                             </div>
