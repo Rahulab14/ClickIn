@@ -22,11 +22,13 @@ import {
   Edit2,
   Heart,
   ChevronRight,
+  ShoppingBasket,
+  Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Sheet,
   SheetContent,
@@ -41,6 +43,9 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { subscribeToCustomerNotifications } from "@/lib/customer-service";
+import { subscribeToGlobalMenuItems, subscribeToAllShops } from "@/lib/vendor-service";
+import { VendorMenuItem, VendorShop } from "@/lib/types/vendor";
+import { AnimatePresence, motion } from "framer-motion";
 
 export function Home2Header() {
   const { user, logout } = useAuth();
@@ -50,6 +55,12 @@ export function Home2Header() {
   const [fullName, setFullName] = useState<string>("");
   const [mounted, setMounted] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Search States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [allItems, setAllItems] = useState<(VendorMenuItem & { shopName?: string })[]>([]);
+  const [shops, setShops] = useState<Record<string, string>>({});
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -101,6 +112,59 @@ export function Home2Header() {
     };
     fetchUserName();
   }, [user]);
+
+  // Global Menu Sync
+  useEffect(() => {
+    const unsubShops = subscribeToAllShops((allShops) => {
+      const shopMap: Record<string, string> = {};
+      allShops.forEach(s => shopMap[s.id] = s.name);
+      setShops(shopMap);
+    });
+
+    const unsubMenu = subscribeToGlobalMenuItems((items) => {
+      setAllItems(items);
+    });
+
+    return () => {
+      unsubShops();
+      unsubMenu();
+    };
+  }, []);
+
+  const filteredResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = searchQuery.toLowerCase();
+    return allItems
+      .filter(item => 
+        item.name.toLowerCase().includes(query) || 
+        item.category?.toLowerCase().includes(query)
+      )
+      .map(item => ({
+        ...item,
+        shopName: shops[item.shopId] || "Loading Shop..."
+      }))
+      .slice(0, 8); // Limit to top 8 results
+  }, [searchQuery, allItems, shops]);
+
+  const handleInvite = async () => {
+    const inviteLink = user ? `https://clickin.co.in/?ref=${user.uid}` : "https://clickin.co.in/";
+    const shareData = {
+      title: "Join Clickin - Smart Canteen Ordering",
+      text: "Hey! Check out Clickin to order food from the canteen without standing in line. Use my link:",
+      url: inviteLink,
+    };
+
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+        window.alert("Invite link copied to clipboard!");
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_4px_6px_-2px_rgba(0,0,0,0.05)]">
@@ -206,26 +270,32 @@ export function Home2Header() {
                       href="/profile"
                     />
                     <MenuItem
-                      icon={<Heart className="w-[22px] h-[22px]" />}
-                      label="My Favorite"
-                      href="/favorites"
+                      icon={<Bell className="w-[22px] h-[22px]" />}
+                      label="Notification"
+                      href="/notifications"
                     />
+                   
                     {/* <MenuItem icon={<Wallet className="w-[22px] h-[22px]" />} label="Payment Methods" href="/payments" /> */}
 
                     <div className="h-[1px] bg-gray-100 mx-2 my-2" />
 
                     {/* Section 2 */}
                     {/* <MenuItem icon={<MapPin className="w-[22px] h-[22px]" />} label="Address" href="/address" /> */}
-                    <MenuItem
-                      icon={<Bell className="w-[22px] h-[22px]" />}
-                      label="Notification"
-                      href="/notifications"
+                     <MenuItem
+                      icon={<Store className="w-[22px] h-[22px]" />}
+                      label="Vendor Dashboard"
+                      href="/vendor"
                     />
                     <MenuItem
+                      icon={<User className="w-[22px] h-[22px]" />}
+                      label="Staff Dashboard"
+                      href="/favorites"
+                    />
+                    {/* <MenuItem
                       icon={<ShieldCheck className="w-[22px] h-[22px]" />}
                       label="Security"
                       href="/security"
-                    />
+                    /> */}
                     <MenuItem
                       icon={<Globe className="w-[22px] h-[22px]" />}
                       label="Language"
@@ -236,7 +306,7 @@ export function Home2Header() {
                     <MenuItem
                       icon={<Users className="w-[22px] h-[22px]" />}
                       label="Invite Friends"
-                      href="/invite"
+                      onClick={handleInvite}
                     />
                     <MenuItem
                       icon={<MessageSquare className="w-[22px] h-[22px]" />}
@@ -324,7 +394,7 @@ export function Home2Header() {
         </div>
 
         {/* Bottom Row: Search Bar */}
-        <div className="px-4 mt-2">
+        <div className="px-4 mt-2 relative">
           <div className="relative group overflow-hidden rounded-2xl transition-all">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
               <Search className="h-5 w-5 text-gray-400 group-focus-within:text-primary transition-all duration-300" />
@@ -332,10 +402,76 @@ export function Home2Header() {
             <input
               type="text"
               placeholder="What's on your mind?"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
               className="block w-full pl-11 pr-4 py-4 bg-[#F6F6F6] border-2 border-transparent rounded-2xl text-[15px] font-bold text-gray-900 placeholder:text-gray-400 placeholder:font-medium focus:ring-4 focus:ring-primary/5 focus:bg-white focus:border-primary/10 transition-all shadow-sm"
             />
             <div className="absolute inset-0 border-2 border-primary/0 rounded-2xl group-focus-within:border-primary/10 pointer-events-none transition-all duration-300" />
           </div>
+
+          {/* Real-time Search Results Dropdown */}
+          <AnimatePresence>
+            {isSearchFocused && searchQuery.trim().length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                className="absolute left-4 right-4 top-[calc(100%+8px)] bg-white/95 backdrop-blur-xl rounded-[2rem] border border-gray-100 shadow-2xl z-[100] overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar"
+              >
+                <div className="p-4 space-y-2">
+                  <div className="flex items-center justify-between px-2 mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Items Available</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] font-bold text-emerald-600">LIVE</span>
+                    </div>
+                  </div>
+                  
+                  {filteredResults.length > 0 ? (
+                    filteredResults.map((item) => (
+                      <Link 
+                        key={`${item.shopId}-${item.id}`} 
+                        href={`/shop/${item.shopId}`}
+                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-emerald-50/50 group transition-all active:scale-[0.98] border border-transparent hover:border-emerald-100"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center text-2xl bg-white shadow-sm border border-gray-100 group-hover:scale-110 transition-transform",
+                            !item.available && "grayscale opacity-50"
+                          )}>
+                            {item.image || "🥘"}
+                          </div>
+                          <div>
+                            <h4 className="text-[15px] font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">
+                              {item.name}
+                            </h4>
+                            <p className="text-[11px] font-semibold text-gray-400">
+                              {item.shopName} • {item.category}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[14px] font-black text-gray-900">₹{item.price}</p>
+                          {!item.available ? (
+                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-md border border-red-100">Out of Stock</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">In Stock</span>
+                          )}
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center">
+                      <p className="text-gray-400 font-bold text-sm">No items matching "{searchQuery}"</p>
+                      <p className="text-[11px] text-gray-300 mt-1 uppercase tracking-widest">Global Scan Active</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </header>
@@ -349,10 +485,11 @@ function MenuItem({
   isToggle,
   isActive,
   href,
+  onClick,
   textClass = "text-gray-800",
 }: any) {
   const inner = (
-    <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl cursor-pointer transition-colors group">
+    <div onClick={href ? undefined : onClick} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl cursor-pointer transition-colors group">
       <div className="flex items-center gap-4">
         <div className="text-gray-900 group-hover:text-black transition-colors">
           {icon}

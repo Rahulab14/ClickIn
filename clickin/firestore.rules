@@ -8,7 +8,7 @@ service cloud.firestore {
       return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // 1. Users Collection
+    // Users Collection
     match /users/{uid} {
       // Users can read/write their own profile, Admins can read/write everything
       allow read, write: if request.auth != null && (request.auth.uid == uid || isAdmin());
@@ -66,28 +66,59 @@ service cloud.firestore {
                        
       allow delete: if request.auth != null && (isAdmin() || resource.data.ownerId == request.auth.uid);
       
-      // Specific rule for menu items to allow stock updates by customers
+      // Specific rule for menu items
       match /menu/{itemId} {
         allow read: if true;
         allow update: if request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'available', 'updatedAt']);
         allow create, delete: if request.auth != null && (isAdmin() || get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid);
       }
       
-      // Allow other nested subcollections like categories, staff
-      match /settings/{doc} {
+      // Staff subcollection inside a shop
+      match /staff/{staffDocId} {
+        allow read, write, delete: if request.auth != null && isAdmin();
+        allow read, write: if request.auth != null && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
+      }
+
+      // Settings
+      match /config/settings {
         allow read: if true;
-        allow write: if request.auth != null && (get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid || isAdmin());
+        allow write: if request.auth != null && (
+          (exists(/databases/$(database)/documents/shops/$(shopId)) && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid) || 
+          isAdmin()
+        );
       }
       
-      // Allow customers to push new order notifications to the vendor
+      // Notifications
       match /notifications/{docId} {
         allow create: if request.auth != null;
         allow read, update, delete: if request.auth != null && (
-          get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid || 
+          (exists(/databases/$(database)/documents/shops/$(shopId)) && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid) || 
           isAdmin() ||
-          get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.shopId == shopId
+          (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.shopId == shopId)
         );
       }
+
+      // Subcollections (orders history, dailySummary, staffActivity, transactions, etc.)
+      match /{subcol}/{subDocId} {
+        allow read, write: if request.auth != null && (
+          (exists(/databases/$(database)/documents/shops/$(shopId)) && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid) || 
+          isAdmin() ||
+          (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.shopId == shopId)
+        );
+        allow delete: if request.auth != null && (
+          (exists(/databases/$(database)/documents/shops/$(shopId)) && get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid) || 
+          isAdmin()
+        );
+      }
+    }
+
+    // 5. Transactions Collection (Root level)
+    match /transactions/{transactionId} {
+      allow read, write: if request.auth != null && (
+        isAdmin() ||
+        (resource != null && resource.data.shopId != null && exists(/databases/$(database)/documents/shops/$(resource.data.shopId)) && get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId == request.auth.uid) ||
+        (request.resource != null && request.resource.data.shopId != null && exists(/databases/$(database)/documents/shops/$(request.resource.data.shopId)) && get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.ownerId == request.auth.uid)
+      );
     }
 
     // 5. Orders Collection
@@ -104,6 +135,13 @@ service cloud.firestore {
     match /ratings/{ratingId} {
       allow create: if true; // Any customer can leave a rating
       allow read: if true;
+    }
+
+    // 7. Feedback Collection
+    match /feedback/{feedbackId} {
+      allow create: if request.auth != null; // Authenticated users can submit feedback
+      allow read: if request.auth != null; // Allow authenticated users (like admin testers) to read
+      allow update, delete: if isAdmin();
     }
 
     // Default deny for everything else

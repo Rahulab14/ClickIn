@@ -27,7 +27,8 @@ import {
     Search,
     Target,
     ShieldCheck,
-    ChevronRight
+    ChevronRight,
+    MessageSquare
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -324,6 +325,22 @@ export default function AdminDashboardPage() {
                                         </div>
                                     </div>
                                     <ChevronRight className="w-5 h-5 text-white/30" />
+                                </button>
+
+                                <button 
+                                    onClick={() => window.location.href = '/admin/user-feedback'}
+                                    className="w-full flex items-center justify-between p-5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-3xl border border-emerald-500/20 transition-all group"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-emerald-500/10">
+                                            <MessageSquare className="w-6 h-6 text-emerald-400" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-black uppercase tracking-widest text-emerald-400">User Feedback</p>
+                                            <p className="text-[10px] font-medium text-emerald-400/60">Live Experience Stream</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-emerald-400/50 group-hover:text-emerald-400 transition-colors" />
                                 </button>
                             </div>
                         </div>

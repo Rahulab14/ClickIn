@@ -17,6 +17,10 @@ import { RoleGuard } from "./RoleGuard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://clickin.co.in"),
+  colorScheme: "light",
+  other: {
+    "darkreader-lock": "true",
+  },
   title: {
     default: "Clickin - Smart Canteen Ordering Platform",
     template: "%s | Clickin",

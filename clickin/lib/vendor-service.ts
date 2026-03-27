@@ -341,24 +341,16 @@ export async function reduceMenuItemStock(shopId: string, items: { menuItemId: s
     }
 }
 
-// Search all menus globally
-export async function searchGlobalMenuItems(searchQuery: string): Promise<(VendorMenuItem & { shopName?: string })[]> {
-    if (!searchQuery) return [];
-    try {
-        const q = query(collectionGroup(db, "menu"), limit(200));
-        const snap = await getDocs(q);
-        const lowerQuery = searchQuery.toLowerCase();
-        
-        return snap.docs
-            .map(d => ({ id: d.id, ...d.data() } as VendorMenuItem))
-            .filter(item => 
-                item.name.toLowerCase().includes(lowerQuery) || 
-                item.category?.toLowerCase().includes(lowerQuery)
-            );
-    } catch (e) {
-        console.warn("Firestore searchGlobalMenuItems error", e);
-        return [];
-    }
+// Real-time listener for ALL menu items across ALL shops (Collection Group)
+export function subscribeToGlobalMenuItems(callback: (items: (VendorMenuItem & { shopName?: string })[]) => void): Unsubscribe {
+    const q = query(collectionGroup(db, "menu"), limit(500));
+    
+    return onSnapshot(q, async (snap) => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as VendorMenuItem));
+        callback(items);
+    }, (error) => {
+        console.error("Firestore subscribeToGlobalMenuItems error:", error);
+    });
 }
 
 // ---- CATEGORIES ----

@@ -3,40 +3,73 @@
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Metadata } from "next";
+import { useState, useEffect, useMemo } from "react";
+import { subscribeToGlobalMenuItems } from "@/lib/vendor-service";
+import { VendorMenuItem } from "@/lib/types/vendor";
 
-// Note: Metadata is only supported in server components, but this is a client component
-// For SEO on this page, consider converting to a server component or using generateMetadata
+const CATEGORY_ICONS: Record<string, string> = {
+  "hamburger": "🍔", "burger": "🍔",
+  "pizza": "🍕",
+  "noodles": "🍜", "chinese": "🍜",
+  "chicken": "🍗", "non-veg": "🍗",
+  "vegetable": "🥬", "veg": "🥬",
+  "dessert": "🍰", "sweets": "🍰",
+  "drink": "🍺", "beverage": "🍺", "beverages": "🧃",
+  "bread": "🍞", "roti": "🍞",
+  "paneer": "⬜",
+  "pancakes": "🥞",
+  "cheese": "🧀",
+  "french fries": "🍟", "fries": "🍟",
+  "sandwich": "🥪",
+  "gobi": "🍄",
+  "masala tea": "🍲", "tea": "☕", "coffee": "☕",
+  "salad": "🥗",
+  "full meals": "🍱", "meals": "🍱", "thali": "🍱",
+  "cooked rice": "🍚", "rice": "🍚", "biryani": "🍗",
+  "dosa": "🍝", "south indian": "🍝",
+  "cup cake": "🍣", "cake": "🍣",
+  "ice cream": "🍨",
+  "cookies": "🍪", "snacks": "🍪",
+  "others": "🥮"
+};
+
+const getCategoryIcon = (name: string) => {
+  const lower = name.toLowerCase();
+  for (const [key, icon] of Object.entries(CATEGORY_ICONS)) {
+    if (lower.includes(key)) return icon;
+  }
+  return "🍱"; // Default icon
+};
 
 export default function CategoriesPage() {
   const router = useRouter();
+  const [items, setItems] = useState<VendorMenuItem[]>([]);
+  const [isLive, setIsLive] = useState(false);
 
-  const categories = [
-    { name: "Hamburger", icon: "🍔" },
-    { name: "Pizza", icon: "🍕" },
-    { name: "Noodles", icon: "🍜" },
-    { name: "Meat", icon: "🍖" },
-    { name: "Vegetable", icon: "🥬" },
-    { name: "Dessert", icon: "🍰" },
-    { name: "Drink", icon: "🍺" },
-    { name: "Bread", icon: "🍞" },
-    { name: "Croissant", icon: "🥐" },
-    { name: "Pancakes", icon: "🥞" },
-    { name: "Cheese", icon: "🧀" },
-    { name: "French Fr..", icon: "🍟" }, // Explicitly truncated as per request
-    { name: "Sandwich", icon: "🥪" },
-    { name: "Taco", icon: "🌮" },
-    { name: "Pot of Fo..", icon: "🍲" }, // Explicitly truncated
-    { name: "Salad", icon: "🥗" },
-    { name: "Bento", icon: "🍱" },
-    { name: "Cooked Ri..", icon: "🍚" }, // Explicitly truncated
-    { name: "Spaghetti", icon: "🍝" },
-    { name: "Sushi", icon: "🍣" },
-    { name: "Ice Crea..", icon: "🍨" }, // Explicitly truncated
-    { name: "Cookies", icon: "🍪" },
-    { name: "Beverag..", icon: "🧃" }, // Explicitly truncated
-    { name: "Others", icon: "🥮" },
-  ];
+  useEffect(() => {
+    const unsubscribe = subscribeToGlobalMenuItems((newItems) => {
+      setItems(newItems);
+      setIsLive(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const categories = useMemo(() => {
+    const uniqueCategories = Array.from(new Set(items.map(item => item.category)));
+    return uniqueCategories.map(name => {
+      // Truncate logic if needed (matching original UI style like "Cooked Ri..")
+      let displayName = name;
+      if (displayName.length > 10) {
+        displayName = displayName.substring(0, 8) + "..";
+      }
+      
+      return {
+        name,
+        displayName,
+        icon: getCategoryIcon(name)
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [items]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 font-sans selection:bg-indigo-100">
@@ -49,8 +82,14 @@ export default function CategoriesPage() {
           >
             <ArrowLeft className="w-6 h-6 text-gray-800 dark:text-gray-200" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight flex items-center gap-2">
             More Category
+            {isLive && (
+              <div className="flex items-center gap-1.5 ml-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-black text-emerald-600 tracking-widest uppercase">Live</span>
+              </div>
+            )}
           </h1>
         </div>
 
@@ -68,7 +107,7 @@ export default function CategoriesPage() {
               </div>
               {/* Label */}
               <span className="text-[12px] md:text-[13px] font-bold text-gray-800 dark:text-gray-200 text-center leading-tight truncate px-1 w-full group-hover:text-indigo-600 transition-colors">
-                {cat.name}
+                {cat.displayName}
               </span>
             </Link>
           ))}

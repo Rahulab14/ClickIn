@@ -49,11 +49,11 @@ export default function VendorSettingsPage() {
   const [editedShop, setEditedShop] = useState({
     name: "",
     address: "",
+    location: "",
     phone: "",
     cuisineType: "" as string,
   });
   const [isOnline, setIsOnline] = useState(true);
-  const [waitTime, setWaitTime] = useState(20);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -85,13 +85,13 @@ export default function VendorSettingsPage() {
   useEffect(() => {
     if (shop) {
       setEditedShop({
-        name: shop.name,
-        address: shop.address,
-        phone: shop.phone,
+        name: shop.name || "",
+        address: shop.address || "",
+        location: shop.location || "",
+        phone: shop.phone || "",
         cuisineType: shop.cuisineType?.join(", ") || "",
       });
-      setIsOnline(shop.isOnline);
-      setWaitTime(shop.estimatedWaitTime);
+      setIsOnline(shop.isOnline ?? true);
     }
   }, [shop]);
 
@@ -104,12 +104,12 @@ export default function VendorSettingsPage() {
       await updateShop(shopId, {
         name: editedShop.name,
         address: editedShop.address,
+        location: editedShop.location,
         phone: editedShop.phone,
         cuisineType: editedShop.cuisineType
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
-        estimatedWaitTime: waitTime,
       });
       setSaved(true);
       setHasChanges(false);
@@ -494,6 +494,18 @@ export default function VendorSettingsPage() {
                           setEditedShop({
                             ...editedShop,
                             address: e.target.value,
+                          });
+                          markChanged();
+                        }}
+                        onBlur={saveShopDetails}
+                      />
+                      <FloatingInput
+                        label="Location (e.g. Main Block, Food Court)"
+                        value={editedShop.location}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setEditedShop({
+                            ...editedShop,
+                            location: e.target.value,
                           });
                           markChanged();
                         }}
